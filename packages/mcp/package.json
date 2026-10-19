@@ -1,0 +1,42 @@
+{
+  "name": "scdo-agent-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for SCDO per-agent x402 wallets: Base USDC payments, signed heartbeats and booked income.",
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://scdo.com.au/linux-agent/",
+  "keywords": [
+    "mcp",
+    "x402",
+    "agent",
+    "wallet",
+    "usdc",
+    "base",
+    "scdo"
+  ],
+  "bin": {
+    "scdo-agent-mcp": "bin/scdo-agent-mcp.js"
+  },
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./core": "./src/core.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^3.25.0 || ^4.0.0"
+  }
+}

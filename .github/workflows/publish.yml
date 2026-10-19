@@ -1,0 +1,33 @@
+name: publish
+# Manual only. Needs repo secrets NPM_TOKEN (npm automation token) and PYPI_TOKEN (PyPI API token).
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "npm, pypi or all"
+        default: all
+jobs:
+  npm:
+    if: inputs.target == 'npm' || inputs.target == 'all'
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
+      - run: npm install && npm test
+      - run: npm publish --workspace packages/mcp --provenance --access public
+        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
+      - run: npm publish --workspace packages/plugin-eliza --provenance --access public
+        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
+  pypi:
+    if: inputs.target == 'pypi' || inputs.target == 'all'
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: python/scdo-agent-tools } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[langchain,test]" build twine && pytest -q tests && python -m build
+      - run: twine upload dist/*
+        env: { TWINE_USERNAME: __token__, TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}" }

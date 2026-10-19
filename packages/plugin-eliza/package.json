@@ -1,0 +1,72 @@
+{
+  "name": "@scdo/plugin-eliza",
+  "version": "0.1.0",
+  "description": "ElizaOS plugin for SCDO per-agent x402 wallets: Base USDC payments, signed heartbeats and booked income.",
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://scdo.com.au/linux-agent/",
+  "keywords": [
+    "elizaos",
+    "eliza",
+    "plugin",
+    "x402",
+    "wallet",
+    "usdc",
+    "base",
+    "scdo"
+  ],
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "scdo-agent-mcp": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@elizaos/core": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@elizaos/core": {
+      "optional": true
+    }
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "SCDO_AGENT_BOT": {
+        "type": "string",
+        "description": "Local agent name (default: character name)"
+      },
+      "SCDO_AGENT_NETWORK": {
+        "type": "string",
+        "description": "base (mainnet, default) or base-sepolia (testnet)"
+      },
+      "SCDO_AGENT_DATA": {
+        "type": "string",
+        "description": "scdo-agent data dir"
+      },
+      "SCDO_AGENT_AUTOSTART": {
+        "type": "string",
+        "description": "Register, start heartbeats and create the wallet on start (default true)"
+      }
+    }
+  }
+}

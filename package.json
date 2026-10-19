@@ -1,0 +1,12 @@
+{
+  "name": "scdo-agent-plugins",
+  "private": true,
+  "license": "MIT",
+  "workspaces": [
+    "packages/mcp",
+    "packages/plugin-eliza"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces"
+  }
+}
