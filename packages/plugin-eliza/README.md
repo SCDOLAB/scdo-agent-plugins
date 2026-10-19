@@ -10,6 +10,12 @@ npm i @scdo/plugin-eliza                                                        
 # 3. in your character: "plugins": ["@scdo/plugin-eliza"]
 ```
 
+Until the packages are on npm, install both tarballs from the GitHub release (the plugin depends on `scdo-agent-mcp`):
+
+```sh
+npm install https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo-agent-mcp-0.1.0.tgz https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo-plugin-eliza-0.1.0.tgz
+```
+
 Full guide: https://scdo.com.au/linux-agent/
 
 On start the plugin registers the agent as a bookkeeping node, starts signed heartbeats and creates its wallet (set `SCDO_AGENT_AUTOSTART=false` to skip).
