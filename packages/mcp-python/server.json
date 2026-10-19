@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.SCDOLAB/scdo-agent-mcp",
+  "description": "SCDO per-agent x402 wallet: Base USDC payments, signed heartbeats and booked income.",
+  "repository": {
+    "url": "https://github.com/SCDOLAB/scdo-agent-plugins",
+    "source": "github",
+    "subfolder": "packages/mcp-python"
+  },
+  "websiteUrl": "https://scdo.com.au/linux-agent/",
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "scdo-agent-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SCDO_AGENT_NETWORK",
+          "description": "base (default) or base-sepolia",
+          "isRequired": false
+        },
+        {
+          "name": "SCDO_AGENT_DATA",
+          "description": "scdo-agent data dir",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}
