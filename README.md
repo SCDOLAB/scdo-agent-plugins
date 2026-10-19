@@ -8,4 +8,14 @@ Thin plugins that give any agent framework an SCDO per-agent x402 wallet (USDC o
 | `@scdo/plugin-eliza` (npm, ElizaOS) | `packages/plugin-eliza` |
 | `scdo-agent-tools` (PyPI, Python and LangChain) | `python/scdo-agent-tools` |
 
+## Install
+
+Release tarballs and Python wheels: https://github.com/SCDOLAB/scdo-agent-plugins/releases/tag/v0.1.0
+
+```sh
+npx -y https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo-agent-mcp-0.1.0.tgz                                                  # MCP server
+npm install https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo-agent-mcp-0.1.0.tgz https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo-plugin-eliza-0.1.0.tgz            # ElizaOS plugin
+pip install "scdo-agent-tools[langchain] @ https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo_agent_tools-0.1.0-py3-none-any.whl"  # Python / LangChain
+```
+
 Guide: https://scdo.com.au/linux-agent/

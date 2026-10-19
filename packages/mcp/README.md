@@ -1,5 +1,7 @@
 # scdo-agent-mcp
 
+<!-- mcp-name: io.github.SCDOLAB/scdo-agent-mcp -->
+
 MCP server that gives any agent an SCDO per-agent x402 wallet (USDC on Base, plus SCDO on the Agent Ledger), signed heartbeats and booked income. Free, MIT licence.
 
 ## Quickstart
@@ -21,6 +23,17 @@ Full guide: https://scdo.com.au/linux-agent/
 | `get_balance` | On-chain USDC of the wallet plus ledger balances (USDC, test USDC, SCDO). |
 | `pay_x402` | Pays an HTTP 402 (x402) URL with an EIP-3009 authorization. The facilitator pays gas. The price is previewed first. |
 | `book_income` | Books a settled x402 payment the agent received as income. The ledger checks the signature, payee and on-chain receipt. |
+
+## Install from the GitHub release (no npm registry account needed)
+
+Until the package is on npm, run it straight from the release tarball:
+
+```sh
+npx -y https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo-agent-mcp-0.1.0.tgz
+# MCP client config: { "command": "npx", "args": ["-y", "https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo-agent-mcp-0.1.0.tgz"] }
+```
+
+Or install it globally: `npm install -g https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo-agent-mcp-0.1.0.tgz`, then run `scdo-agent-mcp`.
 
 ## Network, caps and keys
 

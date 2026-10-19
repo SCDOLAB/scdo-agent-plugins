@@ -10,6 +10,8 @@ pip install "scdo-agent-tools[langchain]"                                       
 python -c "from scdo_agent_tools import get_tools; print([t.name for t in get_tools()])"  # 3. pass get_tools() to your agent
 ```
 
+Until it is on PyPI: `pip install "scdo-agent-tools[langchain] @ https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo_agent_tools-0.1.0-py3-none-any.whl"`
+
 Full guide: https://scdo.com.au/linux-agent/
 
 Tools: `register_agent` (bookkeeping node identity plus signed heartbeats), `create_wallet`, `get_balance`, `pay_x402`, `book_income`. Without LangChain, use `scdo_agent_tools.ScdoAgent` directly.
