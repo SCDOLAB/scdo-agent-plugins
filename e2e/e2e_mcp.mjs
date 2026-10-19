@@ -1,0 +1,20 @@
+// E2E: drive the installed scdo-agent-mcp over stdio against the live ledger and Base mainnet.
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { readFileSync } from "node:fs";
+const [, , bin, url, capture] = process.argv;
+const t = new StdioClientTransport({ command: process.execPath, args: [bin], env: { ...process.env } });
+const c = new Client({ name: "e2e", version: "0" }); await c.connect(t);
+const call = async (name, args) => { const r = await c.callTool({ name, arguments: args }); console.log(`== ${name}`, r.isError ? "ERROR " + r.content[0].text : JSON.stringify(r.structuredContent)); if (r.isError) process.exitCode = 1; return r.structuredContent; };
+console.log("tools:", (await c.listTools()).tools.map((x) => x.name).join(","));
+await call("register_agent", { name: "dfa" });
+await call("create_wallet", { bot: "dfa", maxUsdc: "0.20", dailyUsdc: "0.50" });
+await call("get_balance", { bot: "dfa" });
+const p = await call("pay_x402", { bot: "dfa", url, maxUsdc: "0.001" });
+await new Promise((r) => setTimeout(r, 8000));
+const line = readFileSync(capture, "utf8").trim().split("\n").pop(); const cap = JSON.parse(line);
+const settlement = JSON.parse(Buffer.from(cap.response, "base64").toString());
+console.log("captured settlement tx", settlement.transaction, "matches pay tx:", settlement.transaction === p?.tx);
+await call("book_income", { bot: "dfb", paymentPayload: cap.payment, settlement });
+await call("get_balance", { bot: "dfb" });
+await c.close();

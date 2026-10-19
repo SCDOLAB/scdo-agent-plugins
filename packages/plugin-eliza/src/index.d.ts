@@ -1,0 +1,10 @@
+import type { Plugin, Action, Provider } from "@elizaos/core";
+export declare const scdoPlugin: Plugin;
+export declare const registerAgentAction: Action;
+export declare const createWalletAction: Action;
+export declare const getBalanceAction: Action;
+export declare const payX402Action: Action;
+export declare const bookIncomeAction: Action;
+export declare const walletProvider: Provider;
+export declare function botName(runtime: unknown): string;
+export default scdoPlugin;
