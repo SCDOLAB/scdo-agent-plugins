@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scdo-agent-tools"
-version = "0.1.0"
+version = "0.2.0"
 description = "SCDO per-agent x402 wallet tools for Python and LangChain: Base USDC payments, signed heartbeats and booked income."
 readme = "README.md"
 license = "MIT"
@@ -16,11 +16,15 @@ dependencies = []
 
 [project.optional-dependencies]
 langchain = ["langchain-core>=0.3", "pydantic>=2"]
+bulk = ["eth-account>=0.10"]
 test = ["pytest>=8"]
 
+[project.scripts]
+scdo-agent-bulk = "scdo_agent_tools.bulk:main"
+
 [project.urls]
-Homepage = "https://scdo.com.au/linux-agent/"
-Documentation = "https://scdo.com.au/linux-agent/"
+Homepage = "https://scdo.com.au/agent/"
+Documentation = "https://scdo.com.au/agent/"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/scdo_agent_tools"]

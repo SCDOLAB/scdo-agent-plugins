@@ -14,28 +14,32 @@ while [ $# -gt 0 ]; do case "$1" in
 echo "$NAME" | grep -Eq '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$' || { echo "bad --name" >&2; exit 2; }
 [ -z "$OPERATOR" ] || echo "$OPERATOR" | grep -Eq '^0x[0-9a-fA-F]{40}$' || { echo "--operator must be a 0x address" >&2; exit 2; }
 [ "$(uname -s)" = Linux ] || { echo "Linux only" >&2; exit 1; }
-case "$(uname -m)" in x86_64|amd64) ;; *) echo "amd64 only for now" >&2; exit 1;; esac
+case "$(uname -m)" in x86_64|amd64) ARCH=amd64;; aarch64|arm64) ARCH=arm64;; *) echo "unsupported CPU: $(uname -m) (amd64, arm64)" >&2; exit 1;; esac
 for c in curl python3 tar sha256sum; do command -v $c >/dev/null || { echo "missing: $c" >&2; exit 1; }; done
 R="$HOME/.scdo-agent"; B="$R/bin/scdo-agent"; D="$R/data"; umask 077; mkdir -p "$R/bin" "$D"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 curl -fsSL "$FEED" -o "$T/f.json"
-set -- $(python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));f=j.get("files",{}).get("amd64",j);print(j["version"],f["url"],f["sha256"])' "$T/f.json")
+set -- $(python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));f=j.get("files",{}).get(sys.argv[2]) or (j if sys.argv[2]=="amd64" else sys.exit("no build for "+sys.argv[2]));print(j["version"],f["url"],f["sha256"])' "$T/f.json" "$ARCH")
 VER=$1
 if [ ! -x "$B" ] || ! "$B" version 2>/dev/null | grep -q "$VER"; then
   echo "Installing scdo-agent $VER"; curl -fsSL "$2" -o "$T/a.tgz"
   echo "$3  $T/a.tgz" | sha256sum -c --quiet - || { echo "sha256 mismatch" >&2; exit 1; }
-  tar xzf "$T/a.tgz" -C "$T"; install -m 755 "$T/scdo-agent" "$B"
+  tar xzf "$T/a.tgz" -C "$T"; install -m 755 "$T/scdo-agent" "$B"; "$B" version >/dev/null
 fi
 if [ ! -x "$R/venv/bin/scdo-agent-mcp" ]; then
   echo "Installing scdo-agent-tools and scdo-agent-mcp (PyPI)"
-  python3 -m venv "$R/venv" 2>/dev/null || { echo "python3 venv unavailable (apt install python3-venv)" >&2; exit 1; }
+  rm -rf "$R/venv"
+  if ! python3 -m venv "$R/venv" >/dev/null 2>&1; then  # Debian/Ubuntu without python3-venv: no ensurepip
+    rm -rf "$R/venv"; python3 -m venv --without-pip "$R/venv" && curl -fsSL https://bootstrap.pypa.io/get-pip.py -o "$T/get-pip.py" \
+      && "$R/venv/bin/python" "$T/get-pip.py" -q --disable-pip-version-check >/dev/null || { echo "python3 venv unavailable (apt install python3-venv)" >&2; exit 1; }
+  fi
   "$R/venv/bin/pip" install -q --disable-pip-version-check scdo-agent-tools scdo-agent-mcp
 fi
 if [ -n "$BULK" ]; then
   BULK=$(cd "$(dirname "$BULK")" && pwd)/$(basename "$BULK"); [ -f "$BULK" ] || { echo "no such file: $BULK" >&2; exit 1; }
   "$R/venv/bin/python" -c 'import eth_account' 2>/dev/null || "$R/venv/bin/pip" install -q --disable-pip-version-check eth-account
   curl -fsSL https://scdo.com.au/agent/bulk.py -o "$T/bulk.py"
-  echo "e0d9249b96b217808c9e5eeaf5e7533eff0639df46771c0c7d402befd2fa9650  $T/bulk.py" | sha256sum -c --quiet - || { echo "bulk.py sha256 mismatch" >&2; exit 1; }
+  echo "524c25434c3f648b1f29278a6f319f786792ecf745ab496509b8c3c46da77d20  $T/bulk.py" | sha256sum -c --quiet - || { echo "bulk.py sha256 mismatch" >&2; exit 1; }
   install -m 600 "$T/bulk.py" "$R/bulk.py"; exec "$R/venv/bin/python" "$R/bulk.py" "$BULK" --out "$OUT" ${BSTART:-}
 fi
 A() { SCDO_AGENT_MODE=user "$B" --lang en --data-dir "$D" "$@"; }
