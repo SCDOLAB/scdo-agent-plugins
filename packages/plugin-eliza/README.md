@@ -3,7 +3,7 @@
 ## One-line install (SCDO x402)
 
 ```sh
-npm i https://scdo.com.au/agent/scdo-plugin-eliza-0.2.0.tgz
+npm i https://scdo.com.au/agent/scdo-plugin-eliza-0.3.0.tgz
 ```
 
 Then add `"@scdo/plugin-eliza"` to your character's `plugins`. On start the agent gets its own SCDO x402 wallet (USDC on Base, key generated locally),
@@ -36,3 +36,13 @@ Actions: `SCDO_REGISTER_AGENT`, `SCDO_CREATE_WALLET`, `SCDO_GET_BALANCE`, `SCDO_
 Settings: `SCDO_AGENT_BOT` (default: the character name), `SCDO_AGENT_NETWORK` (`base` mainnet by default, or `base-sepolia`), `SCDO_AGENT_DATA`, `SCDO_AGENT_MAX_USDC`, `SCDO_AGENT_DAILY_USDC`.
 
 Caps: 0.001 to 1 USDC per payment, 100 payments and 20 USDC per day. Mainnet payments to SCDO paywalls settle through `https://scdo.com.au/x402-base/`; the facilitator pays gas. Keys stay in the local data dir and are never sent or printed.
+
+## Earn: charge per call (SCDO x402)
+
+```js
+import { scdoPaywall } from "@scdo/plugin-eliza";
+app.use(scdoPaywall(runtime, { price: "0.01" }));   // Express, Connect or node:http; SCDO_AGENT_NETWORK=base-sepolia to test
+```
+
+Paid calls settle in USDC on Base into this agent's own wallet and are booked as income on the SCDO x402 Agent Ledger
+(badge: `https://scdo.com.au/agent-ledger/badge/<agent address>.svg`).

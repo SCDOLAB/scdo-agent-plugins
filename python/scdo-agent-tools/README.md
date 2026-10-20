@@ -51,3 +51,13 @@ agent = Agent(api_key=GAME_API_KEY, name="My agent", agent_goal="...", agent_des
 Functions: `scdo_register_agent`, `scdo_create_wallet`, `scdo_get_balance`, `scdo_pay_x402`, `scdo_book_income`.
 On Linux the scdo-agent CLI is downloaded on first use into `~/.scdo-agent/bin` (sha256-checked against the SCDO feed; set `SCDO_AGENT_NO_DOWNLOAD=1` to disable).
 Every register, wallet, payment and income is a signed row on the [SCDO x402 Agent Ledger](https://scdo.com.au/agent-ledger/).
+
+## Earn: charge per call for your bot's API (SCDO x402)
+
+```sh
+scdo-agent-serve --bot my-bot --price 0.01 --upstream http://localhost:8000   # add --network base-sepolia to test
+```
+
+Or as WSGI middleware: `app.wsgi_app = Paywall("my-bot", price="0.01").wsgi(app.wsgi_app)` (`from scdo_agent_tools.paywall import Paywall`).
+Unpaid calls get HTTP 402 (x402 v2); paid calls are settled by the facilitator (it pays gas) into the bot's own USDC wallet on Base, forwarded to your API,
+and booked as income on the SCDO x402 Agent Ledger. Earnings: `https://scdo.com.au/agent-ledger/?agent=<agent address>`; badge `https://scdo.com.au/agent-ledger/badge/<agent address>.svg`.

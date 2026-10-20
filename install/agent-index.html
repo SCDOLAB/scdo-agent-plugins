@@ -1,27 +1,42 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SCDO x402 agent: one-line install</title>
-<meta name="description" content="Give any bot its own SCDO x402 wallet (USDC on Base) and signed rows on the SCDO x402 Agent Ledger with one line: Linux, ElizaOS, Virtuals GAME SDK, MCP.">
-<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#111}pre{background:#f4f4f4;padding:.8rem;overflow:auto;border-radius:6px}code{font-size:.92em}h2 small{color:#666;font-weight:normal}#claim{display:none;border:2px solid #0a7;border-radius:8px;padding:.6rem 1rem;margin:1rem 0;background:#f2fbf7}button{font:inherit;padding:.2rem .7rem;cursor:pointer}</style></head>
+<title>SCDO x402: one line, your bot charges per call</title>
+<meta name="description" content="One line. Your bot gets its own SCDO x402 wallet and starts charging per call: USDC on Base, signed rows on the SCDO x402 Agent Ledger. Linux, ElizaOS, Virtuals GAME SDK, MCP.">
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#111}pre{background:#f4f4f4;padding:.8rem;overflow:auto;border-radius:6px}code{font-size:.92em}h2 small{color:#666;font-weight:normal}#claim{display:none;border:2px solid #0a7;border-radius:8px;padding:.6rem 1rem;margin:1rem 0;background:#f2fbf7}button{font:inherit;padding:.2rem .7rem;cursor:pointer}table{border-collapse:collapse}td{padding:.3rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}</style></head>
 <body>
-<h1>SCDO x402 agent</h1>
+<h1>SCDO x402: your bot earns per call</h1>
 <div id="claim"><h2 id="claim-h">Claim</h2>
 <p id="claim-p">Run this on your Linux server. Your agent key is created there and signs the claim; SCDO never holds a key for this handle.</p>
 <pre><code id="claim-cmd"></code></pre><button id="copy">Copy</button> <span id="claim-status"></span></div>
-<p>One line gives a bot its own SCDO x402 wallet: USDC on Base, with the key generated locally (mode 0600, never printed, never sent). It pays x402 URLs per call and every register, wallet, payment and income is a signed row on the <a href="https://scdo.com.au/agent-ledger/">SCDO x402 Agent Ledger</a>.</p>
-<h2>Linux server</h2>
-<pre><code>curl -fsSL https://scdo.com.au/agent/install.sh | sh</code></pre>
-<p>Options: <code>--name NAME --platform x|binance|telegram|linkedin|grok|other --operator 0xADDR --x-handle HANDLE --systemd</code>. Re-running is safe.</p>
-<h2>ElizaOS</h2>
-<pre><code>npm i https://scdo.com.au/agent/scdo-plugin-eliza-0.2.0.tgz</code></pre>
-<p>Add <code>"@scdo/plugin-eliza"</code> to your character's <code>plugins</code>. Actions: SCDO_PAY_X402, SCDO_BOOK_INCOME, SCDO_GET_BALANCE.</p>
-<h2>Virtuals GAME SDK</h2>
-<pre><code>pip install "scdo-agent-tools[virtuals]"</code></pre>
-<pre><code>from scdo_agent_tools.virtuals import ScdoWalletPlugin
-workers = [ScdoWalletPlugin(bot="my-game-agent").get_worker()]</code></pre>
-<h2>MCP (Claude, Cursor, any MCP client)</h2>
-<pre><code>uvx scdo-agent-mcp</code></pre>
-<p>Or <code>pipx run scdo-agent-mcp</code>. On Linux the scdo-agent CLI is fetched on first use into <code>~/.scdo-agent/bin</code> (sha256-checked against the SCDO feed).</p>
+<p style="font-size:1.25em"><b>One line. Your bot gets its own SCDO x402 wallet and starts charging per call.</b></p>
+<p>SCDO x402 is a ledger service for AI agents. Your bot's key is generated on your machine (never printed, never sent). Callers pay per request in USDC on Base, straight to your bot's own wallet; the facilitator pays the gas. Every payment is a signed row on the <a href="https://scdo.com.au/agent-ledger/">SCDO x402 Agent Ledger</a>, so your earnings are public and verifiable.</p>
+<h2>Quickstart: earn in 3 steps</h2>
+<p><b>1. Install</b> (Linux, no root)</p>
+<pre><code>curl -fsSL https://scdo.com.au/agent/install.sh | sh -s -- --name my-bot</code></pre>
+<p><b>2. Wrap your endpoint</b>: put a price in front of any HTTP API (here 0.01 USDC per call)</p>
+<pre><code>~/.scdo-agent/venv/bin/scdo-agent-serve --bot my-bot --price 0.01 --upstream http://localhost:8000</code></pre>
+<p>Unpaid calls get HTTP 402 with x402 payment requirements; paid calls are settled and forwarded to your API. Try it first on the test network with <code>--network base-sepolia</code>. In your own code:</p>
+<pre><code># Python (Flask, Django, any WSGI app): pip install scdo-agent-tools
+from scdo_agent_tools.paywall import Paywall
+app.wsgi_app = Paywall("my-bot", price="0.01").wsgi(app.wsgi_app)
+
+// Node / ElizaOS (Express, Connect or node:http)
+import { scdoPaywall } from "@scdo/plugin-eliza";
+app.use(scdoPaywall(runtime, { price: "0.01" }));</code></pre>
+<p><b>3. See your earnings</b> on your bot's ledger profile: <code>https://scdo.com.au/agent-ledger/?agent=&lt;your agent address&gt;</code> (the installer prints it).</p>
+<h2>The one-liners</h2>
+<table>
+<tr><td>Linux server</td><td><code>curl -fsSL https://scdo.com.au/agent/install.sh | sh</code></td></tr>
+<tr><td>ElizaOS</td><td><code>npm i https://scdo.com.au/agent/scdo-plugin-eliza-0.3.0.tgz</code></td></tr>
+<tr><td>Virtuals GAME SDK</td><td><code>pip install "scdo-agent-tools[virtuals]"</code></td></tr>
+<tr><td>MCP (Claude, Cursor, any client)</td><td><code>uvx scdo-agent-mcp</code></td></tr>
+</table>
+<p>ElizaOS: add <code>"@scdo/plugin-eliza"</code> to your character's <code>plugins</code>. Virtuals: <code>workers=[ScdoWalletPlugin(bot="my-game-agent").get_worker()]</code> from <code>scdo_agent_tools.virtuals</code>. Options for the Linux installer: <code>--platform x|binance|telegram|linkedin|grok|other --operator 0xADDR --x-handle HANDLE --systemd</code>.</p>
+<h2>Show your earnings badge</h2>
+<p>Live badge for your README or bio (replace the address with your agent address):</p>
+<p><img alt="SCDO x402 ledger badge" src="https://scdo.com.au/agent-ledger/badge/0x9375e21770736AD0964D231a3e0c40af62420174.svg"></p>
+<pre><code>[![SCDO x402](https://scdo.com.au/agent-ledger/badge/0xYOUR_AGENT.svg)](https://scdo.com.au/agent-ledger/?agent=0xYOUR_AGENT)</code></pre>
+<pre><code>&lt;a href="https://scdo.com.au/agent-ledger/?agent=0xYOUR_AGENT"&gt;&lt;img src="https://scdo.com.au/agent-ledger/badge/0xYOUR_AGENT.svg" alt="SCDO x402"&gt;&lt;/a&gt;</code></pre>
 <h2>Bulk onboarding</h2>
 <pre><code>curl -fsSL https://scdo.com.au/agent/install.sh | sh -s -- --bulk bots.csv --out out.csv</code></pre>
 <pre><code>name,operator,platform,label,email,x_handle

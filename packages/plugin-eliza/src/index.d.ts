@@ -8,3 +8,4 @@ export declare const bookIncomeAction: Action;
 export declare const walletProvider: Provider;
 export declare function botName(runtime: unknown): string;
 export default scdoPlugin;
+export declare function scdoPaywall(runtime: unknown, opts?: { price?: string; network?: string; description?: string }): (req: any, res: any, next?: () => void) => Promise<boolean>;
