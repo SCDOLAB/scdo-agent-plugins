@@ -1,12 +1,15 @@
 // SCDO agent core: a thin wrapper around the scdo-agent CLI and the public Agent Ledger API.
 // Keys never leave the agent's data dir. This module never reads key files and never prints secrets.
 import { spawn, execFile } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, openSync, renameSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, openSync, renameSync, chmodSync, rmSync, mkdtempSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { homedir } from "node:os";
 import { join, delimiter } from "node:path";
 
 export const DOCS_URL = "https://scdo.com.au/linux-agent/";
 export const LEDGER_URL = "https://scdo.com.au/agent-ledger/api";
+export const FEED_URL = "https://scdo.com.au/downloads/wallet/linux/latest.json";
 export const RELAY_URL = "https://scdo.com.au/x402-base/";
 
 export const NETWORKS = {
@@ -70,11 +73,34 @@ export function defaultDataDir(env = process.env) {
 
 export function findBin(env = process.env) {
   if (env.SCDO_AGENT_BIN && env.SCDO_AGENT_BIN.trim()) return env.SCDO_AGENT_BIN.trim();
-  const dirs = [...(env.PATH || "").split(delimiter), join(env.HOME || homedir(), ".local", "bin"), "/usr/local/bin", "/usr/bin"];
+  const dirs = [...(env.PATH || "").split(delimiter), join(env.HOME || homedir(), ".scdo-agent", "bin"), join(env.HOME || homedir(), ".local", "bin"), "/usr/local/bin", "/usr/bin"];
   for (const d of dirs) {
     if (d && existsSync(join(d, "scdo-agent"))) return join(d, "scdo-agent");
   }
   return null;
+}
+
+/**
+ * Download the scdo-agent CLI (Linux amd64/arm64) from the SCDO feed into ~/.scdo-agent/bin, sha256-checked.
+ * Used when the CLI is missing so a framework plugin works after a single `npm i`. Set SCDO_AGENT_NO_DOWNLOAD=1 to disable.
+ */
+export async function installBin(env = process.env, fetchFn = globalThis.fetch) {
+  if (osPlatform() !== "linux") throw new ScdoError("no_cli", `scdo-agent auto-install is Linux only. Install it first: ${DOCS_URL}`);
+  const a = { x64: "amd64", arm64: "arm64" }[osArch()];
+  if (!a) throw new ScdoError("no_cli", `unsupported CPU ${osArch()} (amd64, arm64)`);
+  const feed = await (await fetchFn(env.SCDO_FEED || FEED_URL)).json();
+  const f = (feed.files || {})[a] || (a === "amd64" ? feed : null);
+  if (!f || !/^https:\/\/scdo\.com\.au\//.test(f.url) || !/^[0-9a-f]{64}$/.test(f.sha256 || "")) throw new ScdoError("no_cli", "bad SCDO feed");
+  const buf = Buffer.from(await (await fetchFn(f.url)).arrayBuffer());
+  if (createHash("sha256").update(buf).digest("hex") !== f.sha256) throw new ScdoError("no_cli", "scdo-agent sha256 mismatch");
+  const dir = join(env.HOME || homedir(), ".scdo-agent", "bin"); mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const t = mkdtempSync(join(tmpdir(), "scdo-agent-"));
+  try {
+    writeFileSync(join(t, "a.tgz"), buf);
+    await new Promise((res, rej) => execFile("tar", ["xzf", join(t, "a.tgz"), "-C", t], (e) => (e ? rej(e) : res())));
+    const out = join(dir, "scdo-agent"); writeFileSync(out + ".tmp", readFileSync(join(t, "scdo-agent"))); chmodSync(out + ".tmp", 0o755); renameSync(out + ".tmp", out);
+    return out;
+  } finally { rmSync(t, { recursive: true, force: true }); }
 }
 
 // Redact anything that looks like a private key or a long secret before it leaves this module.
@@ -115,8 +141,16 @@ export class ScdoAgent {
   }
 
   /** Run the CLI with English output and an explicit data dir. Returns {code, stdout, stderr}. */
-  run(args, { timeoutMs } = {}) {
-    const bin = this.requireBin();
+  async ensureBin() {
+    if (this.bin && existsSync(this.bin)) return this.bin;
+    if (String(this.env.SCDO_AGENT_NO_DOWNLOAD || "") === "1") return this.requireBin();
+    if (!this._installing) this._installing = installBin(this.env, this.fetch).finally(() => { this._installing = null; });
+    this.bin = await this._installing;
+    return this.bin;
+  }
+
+  async run(args, { timeoutMs } = {}) {
+    const bin = await this.ensureBin();
     const full = ["--lang", "en", "--data-dir", this.dataDir, ...args];
     const env = { ...this.env, LANG: "C.UTF-8", LC_ALL: "C.UTF-8" };
     if (this.passphraseFile) env.SCDO_AGENT_PASSPHRASE_FILE = this.passphraseFile;
@@ -180,7 +214,7 @@ export class ScdoAgent {
 
   /** Start `scdo-agent run` detached. It registers with the ledger and sends signed heartbeats. */
   async startHeartbeats(name) {
-    const bin = this.requireBin();
+    const bin = await this.ensureBin();
     const dir = this.agentDir(name);
     mkdirSync(dir, { recursive: true });
     const log = openSync(join(dir, "plugin-run.log"), "a");

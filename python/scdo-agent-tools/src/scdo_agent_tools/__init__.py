@@ -2,7 +2,7 @@
 from .core import (CAPS_TEXT, DOCS_URL, LEDGER_URL, NETWORKS, ScdoAgent, ScdoError, atomic_to_usdc, check_amount,
                    parse_network, usdc_to_atomic)
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"
 __all__ = ["ScdoAgent", "ScdoError", "NETWORKS", "DOCS_URL", "LEDGER_URL", "CAPS_TEXT", "usdc_to_atomic", "atomic_to_usdc",
            "check_amount", "parse_network", "get_tools"]
 

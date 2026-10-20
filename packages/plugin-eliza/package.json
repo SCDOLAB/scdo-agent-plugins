@@ -1,10 +1,10 @@
 {
   "name": "@scdo/plugin-eliza",
-  "version": "0.1.0",
-  "description": "ElizaOS plugin for SCDO per-agent x402 wallets: Base USDC payments, signed heartbeats and booked income.",
+  "version": "0.2.0",
+  "description": "SCDO x402 wallet plugin for ElizaOS: the agent gets its own USDC wallet on Base (key generated locally), pays x402 URLs and books signed rows on the SCDO x402 Agent Ledger.",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://scdo.com.au/linux-agent/",
+  "homepage": "https://scdo.com.au/agent/",
   "keywords": [
     "elizaos",
     "eliza",
@@ -35,11 +35,10 @@
     "access": "public"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "prepack": "cp ../mcp/src/core.js src/scdo-core.js"
   },
-  "dependencies": {
-    "scdo-agent-mcp": "^0.1.0"
-  },
+  "dependencies": {},
   "peerDependencies": {
     "@elizaos/core": "^1.0.0"
   },
@@ -66,7 +65,14 @@
       "SCDO_AGENT_AUTOSTART": {
         "type": "string",
         "description": "Register, start heartbeats and create the wallet on start (default true)"
+      },
+      "SCDO_AGENT_NO_DOWNLOAD": {
+        "type": "string",
+        "description": "Set to 1 to not auto-download the scdo-agent CLI (Linux) into ~/.scdo-agent/bin"
       }
     }
+  },
+  "devDependencies": {
+    "scdo-agent-mcp": "file:../mcp"
   }
 }

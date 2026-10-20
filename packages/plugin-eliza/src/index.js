@@ -1,6 +1,6 @@
 // @scdo/plugin-eliza: SCDO per-agent x402 wallet for ElizaOS agents.
 // Keys stay in the local scdo-agent data dir. Docs: https://scdo.com.au/linux-agent/
-import { ScdoAgent, ScdoError, CAPS, atomicToUsdc } from "scdo-agent-mcp/core";
+import { ScdoAgent, ScdoError, CAPS, atomicToUsdc } from "./scdo-core.js";
 
 const URL_RE = /https?:\/\/[^\s<>"')]+/i;
 const USDC_RE = /(\d+(?:\.\d{1,6})?)\s*(?:usdc|\$)/i;

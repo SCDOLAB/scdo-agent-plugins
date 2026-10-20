@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SCDO x402 agent: one-line install</title>
+<meta name="description" content="Give any bot its own SCDO x402 wallet (USDC on Base) and signed rows on the SCDO x402 Agent Ledger with one line: Linux, ElizaOS, Virtuals GAME SDK, MCP.">
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#111}pre{background:#f4f4f4;padding:.8rem;overflow:auto;border-radius:6px}code{font-size:.92em}h2 small{color:#666;font-weight:normal}#claim{display:none;border:2px solid #0a7;border-radius:8px;padding:.6rem 1rem;margin:1rem 0;background:#f2fbf7}button{font:inherit;padding:.2rem .7rem;cursor:pointer}</style></head>
+<body>
+<h1>SCDO x402 agent</h1>
+<div id="claim"><h2 id="claim-h">Claim</h2>
+<p id="claim-p">Run this on your Linux server. Your agent key is created there and signs the claim; SCDO never holds a key for this handle.</p>
+<pre><code id="claim-cmd"></code></pre><button id="copy">Copy</button> <span id="claim-status"></span></div>
+<p>One line gives a bot its own SCDO x402 wallet: USDC on Base, with the key generated locally (mode 0600, never printed, never sent). It pays x402 URLs per call and every register, wallet, payment and income is a signed row on the <a href="https://scdo.com.au/agent-ledger/">SCDO x402 Agent Ledger</a>.</p>
+<h2>Linux server</h2>
+<pre><code>curl -fsSL https://scdo.com.au/agent/install.sh | sh</code></pre>
+<p>Options: <code>--name NAME --platform x|binance|telegram|linkedin|grok|other --operator 0xADDR --x-handle HANDLE --systemd</code>. Re-running is safe.</p>
+<h2>ElizaOS</h2>
+<pre><code>npm i https://scdo.com.au/agent/scdo-plugin-eliza-0.2.0.tgz</code></pre>
+<p>Add <code>"@scdo/plugin-eliza"</code> to your character's <code>plugins</code>. Actions: SCDO_PAY_X402, SCDO_BOOK_INCOME, SCDO_GET_BALANCE.</p>
+<h2>Virtuals GAME SDK</h2>
+<pre><code>pip install "scdo-agent-tools[virtuals]"</code></pre>
+<pre><code>from scdo_agent_tools.virtuals import ScdoWalletPlugin
+workers = [ScdoWalletPlugin(bot="my-game-agent").get_worker()]</code></pre>
+<h2>MCP (Claude, Cursor, any MCP client)</h2>
+<pre><code>uvx scdo-agent-mcp</code></pre>
+<p>Or <code>pipx run scdo-agent-mcp</code>. On Linux the scdo-agent CLI is fetched on first use into <code>~/.scdo-agent/bin</code> (sha256-checked against the SCDO feed).</p>
+<h2>Bulk onboarding</h2>
+<pre><code>curl -fsSL https://scdo.com.au/agent/install.sh | sh -s -- --bulk bots.csv --out out.csv</code></pre>
+<pre><code>name,operator,platform,label,email,x_handle
+rack-a,0xYourOperatorAddress,x,Support bot on X,,rack_a_bot
+rack-b,,telegram,Telegram helper,,</code></pre>
+<p>The output CSV lists each bot's name, agent address, Base wallet and ledger profile URL, with no secrets. Also on PyPI: <code>pip install "scdo-agent-tools[bulk]"</code>, then <code>scdo-agent-bulk</code>.</p>
+<h2>Verify</h2>
+<p><a href="install.sh">install.sh</a> (<a href="install.sh.sha256">sha256</a>) · <a href="bulk.py">bulk.py</a> (<a href="bulk.py.sha256">sha256</a>) · <a href="SHA256SUMS">SHA256SUMS</a> · source: <a href="https://github.com/SCDOLAB/scdo-agent-plugins">SCDOLAB/scdo-agent-plugins</a></p>
+<h2>Ledger</h2>
+<p>Public list: <a href="https://scdo.com.au/agent-ledger/">scdo.com.au/agent-ledger</a> · API: <a href="https://scdo.com.au/agent-ledger/api/agents">/agent-ledger/api/agents</a></p>
+<script>
+(function(){
+  var m=/^xreg-@?([A-Za-z0-9_]{1,15})$/.exec(new URLSearchParams(location.search).get("src")||""); if(!m) return;
+  var h=m[1].toLowerCase(), cmd="curl -fsSL https://scdo.com.au/agent/install.sh | sh -s -- --name x-"+h.replace(/_/g,"-")+" --platform x --x-handle "+h;
+  var box=document.getElementById("claim"), st=document.getElementById("claim-status");
+  document.getElementById("claim-h").textContent="Claim @"+h; document.getElementById("claim-cmd").textContent=cmd; box.style.display="block";
+  document.getElementById("copy").onclick=function(){navigator.clipboard&&navigator.clipboard.writeText(cmd);st.textContent="Copied.";};
+  fetch("/agent-ledger/api/xreg/"+h).then(function(r){return r.json();}).then(function(j){
+    if(j.status==="claimed"){st.innerHTML="";var a=document.createElement("a");a.href="https://scdo.com.au/agent-ledger/?agent="+j.agent;a.textContent="@"+h+" is claimed: "+j.agent;st.appendChild(a);}
+    else if(j.status==="pending"){st.textContent="Status: pending, waiting for the owner to run the line above.";}
+  }).catch(function(){});
+})();
+</script>
+</body></html>

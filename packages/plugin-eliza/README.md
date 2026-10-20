@@ -1,5 +1,16 @@
 # @scdo/plugin-eliza
 
+## One-line install (SCDO x402)
+
+```sh
+npm i https://scdo.com.au/agent/scdo-plugin-eliza-0.2.0.tgz
+```
+
+Then add `"@scdo/plugin-eliza"` to your character's `plugins`. On start the agent gets its own SCDO x402 wallet (USDC on Base, key generated locally),
+signed heartbeats on the [SCDO x402 Agent Ledger](https://scdo.com.au/agent-ledger/), and the actions SCDO_PAY_X402 / SCDO_BOOK_INCOME.
+No other dependency: on Linux the scdo-agent CLI is downloaded on first use into `~/.scdo-agent/bin` (sha256-checked; `SCDO_AGENT_NO_DOWNLOAD=1` disables).
+
+
 ElizaOS plugin that gives an Eliza agent an SCDO per-agent x402 wallet (USDC on Base, plus SCDO on the Agent Ledger), signed heartbeats and booked income. Free, MIT licence.
 
 ## Quickstart
