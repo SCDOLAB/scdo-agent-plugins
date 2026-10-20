@@ -15,7 +15,7 @@ async def main(bot: str) -> None:
             await s.initialize()
             tools = sorted(t.name for t in (await s.list_tools()).tools)
             print("tools:", tools)
-            assert tools == ["book_income", "create_wallet", "get_balance", "pay_x402", "register_agent"], tools
+            assert {"book_income", "create_wallet", "get_balance", "pay_x402", "register_agent"} <= set(tools), tools
             res = await s.call_tool("get_balance", {"bot": bot})
             print("get_balance isError:", res.isError)
             print(res.content[0].text)
