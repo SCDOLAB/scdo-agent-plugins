@@ -1,14 +1,14 @@
 #!/bin/sh
 # SCDO headless agent installer (no root). Usage:
-#   curl -fsSL https://scdo.com.au/agent/install.sh | sh -s -- [--name N] [--operator 0xADDR] [--platform P] [--systemd] [--no-start]
-#   Bulk: ... | sh -s -- --bulk bots.csv [--out out.csv] [--start]   (CSV/JSON: name,operator,platform,email)
+#   curl -fsSL https://scdo.com.au/agent/install.sh | sh -s -- [--name N] [--operator 0xADDR] [--platform P] [--x-handle H] [--systemd] [--no-start]
+#   Bulk: ... | sh -s -- --bulk bots.csv [--out out.csv] [--start]   (CSV/JSON: name,operator,platform,label,email,x_handle)
 # Installs into ~/.scdo-agent. The agent key is created locally (mode 0600), never printed, never sent.
 set -eu
 BSTART=""
-NAME="scdo-$(hostname 2>/dev/null | cut -d. -f1 | tr -cd 'a-zA-Z0-9-' | cut -c1-24)"; OPERATOR=""; PLATFORM="linux"; SYSTEMD=0; START=1; BULK=""; OUT="scdo-bulk-out.csv"
+NAME="scdo-$(hostname 2>/dev/null | cut -d. -f1 | tr -cd 'a-zA-Z0-9-' | cut -c1-24)"; OPERATOR=""; PLATFORM="linux"; SYSTEMD=0; START=1; BULK=""; XH=""; OUT="scdo-bulk-out.csv"
 FEED="${SCDO_FEED:-https://scdo.com.au/downloads/wallet/linux/latest.json}"
 while [ $# -gt 0 ]; do case "$1" in
-  --name) NAME="$2"; shift 2;; --operator) OPERATOR="$2"; shift 2;; --platform) PLATFORM="$2"; shift 2;;
+  --name) NAME="$2"; shift 2;; --operator) OPERATOR="$2"; shift 2;; --platform) PLATFORM="$2"; shift 2;; --x-handle) XH="$2"; shift 2;;
   --systemd) SYSTEMD=1; shift;; --bulk) BULK="$2"; shift 2;; --out) OUT="$2"; shift 2;; --start) BSTART=--start; shift;; --no-start) START=0; shift;; -y|--yes|--non-interactive) shift;;
   -h|--help) sed -n 2,4p "$0" 2>/dev/null || true; exit 0;; *) echo "unknown flag: $1" >&2; exit 2;; esac; done
 echo "$NAME" | grep -Eq '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$' || { echo "bad --name" >&2; exit 2; }
@@ -35,12 +35,18 @@ if [ ! -x "$R/venv/bin/scdo-agent-mcp" ]; then
   fi
   "$R/venv/bin/pip" install -q --disable-pip-version-check scdo-agent-tools scdo-agent-mcp
 fi
-if [ -n "$BULK" ]; then
+if [ -z "$BULK" ] && { [ -n "$XH" ] || [ -n "$OPERATOR" ]; }; then  # agent-signed bind of operator/x handle via bulk.py
+  printf "name,operator,platform,x_handle\n%s,%s,%s,%s\n" "$NAME" "$OPERATOR" "$PLATFORM" "$XH" > "$R/$NAME.csv"; ONE="$R/$NAME.csv"
+fi
+if [ -n "$BULK" ] || [ -n "${ONE:-}" ]; then
+  [ -n "$BULK" ] || BULK="$ONE"
   BULK=$(cd "$(dirname "$BULK")" && pwd)/$(basename "$BULK"); [ -f "$BULK" ] || { echo "no such file: $BULK" >&2; exit 1; }
   "$R/venv/bin/python" -c 'import eth_account' 2>/dev/null || "$R/venv/bin/pip" install -q --disable-pip-version-check eth-account
   curl -fsSL https://scdo.com.au/agent/bulk.py -o "$T/bulk.py"
-  echo "524c25434c3f648b1f29278a6f319f786792ecf745ab496509b8c3c46da77d20  $T/bulk.py" | sha256sum -c --quiet - || { echo "bulk.py sha256 mismatch" >&2; exit 1; }
-  install -m 600 "$T/bulk.py" "$R/bulk.py"; exec "$R/venv/bin/python" "$R/bulk.py" "$BULK" --out "$OUT" ${BSTART:-}
+  echo "a836c8c58830d59669ac0670c65a8f1db6f01aed1c4dd87a173ee9579e2ad412  $T/bulk.py" | sha256sum -c --quiet - || { echo "bulk.py sha256 mismatch" >&2; exit 1; }
+  install -m 600 "$T/bulk.py" "$R/bulk.py"
+  [ -z "${ONE:-}" ] && exec "$R/venv/bin/python" "$R/bulk.py" "$BULK" --out "$OUT" ${BSTART:-}
+  "$R/venv/bin/python" "$R/bulk.py" "$BULK" --out "$R/$NAME.out.csv" --delay 0 >/dev/null || { echo "bind failed, see $R/$NAME.out.csv" >&2; exit 1; }
 fi
 A() { SCDO_AGENT_MODE=user "$B" --lang en --data-dir "$D" "$@"; }
 J() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get(sys.argv[2]) or "")' "$@" 2>/dev/null || true; }
