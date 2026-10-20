@@ -32,3 +32,22 @@ rack-b,,telegram,Telegram helper,
 ```
 
 Each bot gets a local key (mode 0600, never printed), a signed Agent Ledger registration and a Base USDC x402 wallet. The output CSV has name, agent address, Base wallet, operator, platform, profile URL and status, and no secrets. Re-runs are idempotent and resume where they stopped.
+
+## Virtuals GAME SDK
+
+```sh
+pip install "scdo-agent-tools[virtuals]"
+```
+
+```python
+from game_sdk.game.agent import Agent
+from scdo_agent_tools.virtuals import ScdoWalletPlugin
+
+scdo = ScdoWalletPlugin(bot="my-game-agent")   # own SCDO x402 wallet: USDC on Base, key generated locally
+agent = Agent(api_key=GAME_API_KEY, name="My agent", agent_goal="...", agent_description="...",
+              get_agent_state_fn=lambda r, s: {}, workers=[scdo.get_worker()])
+```
+
+Functions: `scdo_register_agent`, `scdo_create_wallet`, `scdo_get_balance`, `scdo_pay_x402`, `scdo_book_income`.
+On Linux the scdo-agent CLI is downloaded on first use into `~/.scdo-agent/bin` (sha256-checked against the SCDO feed; set `SCDO_AGENT_NO_DOWNLOAD=1` to disable).
+Every register, wallet, payment and income is a signed row on the [SCDO x402 Agent Ledger](https://scdo.com.au/agent-ledger/).

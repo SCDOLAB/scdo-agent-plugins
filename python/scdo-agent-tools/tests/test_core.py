@@ -81,7 +81,7 @@ def test_book_income(tmp_path):
 
 def test_missing_cli(tmp_path):
     with pytest.raises(ScdoError, match="https://scdo.com.au/linux-agent/"):
-        ScdoAgent(bin="/nonexistent", data_dir=str(tmp_path)).register_agent("x1")
+        ScdoAgent(bin="/nonexistent", data_dir=str(tmp_path), env={"SCDO_AGENT_NO_DOWNLOAD": "1"}).register_agent("x1")
 
 
 def test_heartbeats(tmp_path):

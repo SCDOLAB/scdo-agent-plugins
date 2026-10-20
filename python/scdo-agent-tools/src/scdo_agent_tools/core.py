@@ -21,6 +21,7 @@ from typing import Any, Callable, Optional
 DOCS_URL = "https://scdo.com.au/linux-agent/"
 LEDGER_URL = "https://scdo.com.au/agent-ledger/api"
 RELAY_URL = "https://scdo.com.au/x402-base/"
+FEED_URL = "https://scdo.com.au/downloads/wallet/linux/latest.json"
 
 NETWORKS = {
     "base": {"id": "eip155:8453", "label": "Base mainnet", "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "rpc": "https://mainnet.base.org"},
@@ -95,10 +96,39 @@ def find_bin(env=os.environ) -> Optional[str]:
     found = shutil.which("scdo-agent", path=env.get("PATH"))
     if found:
         return found
-    for d in (Path(env.get("HOME") or Path.home()) / ".local" / "bin", Path("/usr/local/bin"), Path("/usr/bin")):
+    for d in (Path(env.get("HOME") or Path.home()) / ".scdo-agent" / "bin", Path(env.get("HOME") or Path.home()) / ".local" / "bin", Path("/usr/local/bin"), Path("/usr/bin")):
         if (d / "scdo-agent").exists():
             return str(d / "scdo-agent")
     return None
+
+
+def install_bin(env=os.environ) -> str:
+    """Download the scdo-agent CLI (Linux amd64/arm64) from the SCDO feed into ~/.scdo-agent/bin, sha256-checked.
+    Lets a framework plugin work after a single pip install. Set SCDO_AGENT_NO_DOWNLOAD=1 to disable."""
+    import hashlib, io, platform, tarfile
+    if platform.system() != "Linux":
+        raise ScdoError("no_cli", f"scdo-agent auto-install is Linux only. Install it first: {DOCS_URL}")
+    arch = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(platform.machine().lower())
+    if not arch:
+        raise ScdoError("no_cli", f"unsupported CPU {platform.machine()} (amd64, arm64)")
+    ua = {"user-agent": "scdo-agent-tools"}
+    with urllib.request.urlopen(urllib.request.Request(env.get("SCDO_FEED") or FEED_URL, headers=ua), timeout=60) as r:
+        feed = json.load(r)
+    f = (feed.get("files") or {}).get(arch) or (feed if arch == "amd64" else None)
+    if not f or not str(f.get("url", "")).startswith("https://scdo.com.au/") or not re.match(r"^[0-9a-f]{64}$", f.get("sha256", "")):
+        raise ScdoError("no_cli", "bad SCDO feed")
+    with urllib.request.urlopen(urllib.request.Request(f["url"], headers=ua), timeout=300) as r:
+        buf = r.read()
+    if hashlib.sha256(buf).hexdigest() != f["sha256"]:
+        raise ScdoError("no_cli", "scdo-agent sha256 mismatch")
+    with tarfile.open(fileobj=io.BytesIO(buf)) as t:
+        m = t.extractfile("scdo-agent")
+        data = m.read()
+    d = Path(env.get("HOME") or Path.home()) / ".scdo-agent" / "bin"
+    d.mkdir(parents=True, exist_ok=True, mode=0o700)
+    out = d / "scdo-agent"; tmp = d / "scdo-agent.tmp"
+    tmp.write_bytes(data); tmp.chmod(0o755); os.replace(tmp, out)
+    return str(out)
 
 
 def scrub(text: str) -> str:
@@ -146,6 +176,8 @@ class ScdoAgent:
 
     # ---- plumbing ----
     def _require_bin(self) -> str:
+        if (not self.bin or not Path(self.bin).exists()) and self.env.get("SCDO_AGENT_NO_DOWNLOAD") != "1":
+            self.bin = install_bin(self.env)
         if not self.bin or not Path(self.bin).exists():
             raise ScdoError("no_cli", f"scdo-agent is not installed. Install it first: {DOCS_URL}")
         return self.bin

@@ -43,3 +43,9 @@ test("pay action extracts url and amount from the message", async () => {
   const over = await payX402Action.handler(rt, { content: { text: "pay http://x/a up to 3 USDC" } }, {}, {});
   assert.equal(over.success, false);
 });
+
+test("vendored core matches scdo-agent-mcp core", () => {
+  const a = readFileSync(new URL("../src/scdo-core.js", import.meta.url), "utf8");
+  const b = readFileSync(join(dirname(require.resolve("scdo-agent-mcp/package.json")), "src", "core.js"), "utf8");
+  assert.equal(a, b);
+});

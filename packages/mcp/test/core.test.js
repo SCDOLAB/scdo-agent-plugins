@@ -103,7 +103,7 @@ test("book_income posts payload and settlement to the ledger and enforces caps",
 });
 
 test("missing CLI points to the docs", async () => {
-  const a = new ScdoAgent({ bin: "/nonexistent/scdo-agent", dataDir: tmpdir() });
+  const a = new ScdoAgent({ bin: "/nonexistent/scdo-agent", dataDir: tmpdir(), env: { SCDO_AGENT_NO_DOWNLOAD: "1" } });
   await assert.rejects(a.registerAgent({ name: "x1" }), /https:\/\/scdo\.com\.au\/linux-agent\//);
 });
 
