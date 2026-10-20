@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """SCDO bulk per-bot x402 wallet onboarding. Keys stay local (0600); nothing secret is printed or written to the output.
-Input CSV/JSON rows: name, operator (0x, optional), platform (optional), email (optional).
+Input CSV/JSON rows: name, operator (0x, optional), platform (grok|x|binance|telegram|linkedin|other or free text), label, email (optional).
 Usage: bulk.py FILE [--out out.csv] [--delay 2] [--start]"""
 import argparse, csv, fcntl, json, os, re, secrets, subprocess, sys, time, urllib.request, urllib.error
 from eth_account import Account
@@ -11,6 +11,7 @@ R = os.path.expanduser(os.environ.get("SCDO_AGENT_HOME", "~/.scdo-agent"))
 BIN, DATA = f"{R}/bin/scdo-agent", f"{R}/data"
 API = "https://scdo.com.au/agent-ledger/api"
 PREFIX = "SCDO Agent Ledger v1\n"
+BOT_PLATFORMS = ("grok", "other", "x", "binance", "telegram", "linkedin")
 NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$"); ADDR = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 def cj(v): return json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -70,7 +71,7 @@ def rebind(d, name, addr, operator, platform, s):
     if os.path.exists(f"{d}/email.salt") and os.path.exists(f"{d}/email.txt"):
         email_commit = "0x" + keccak(b"scdo-bot-email-v1" + open(f"{d}/email.salt", "rb").read()[:32] + open(f"{d}/email.txt").read().strip().lower().encode()).hex()
     stf = f"{d}/state.json"; state = jload(stf, {"v": 1, "seq": 0}); seq = int(state.get("seq", 0)) + 1
-    body = {"botId": name, "platform": "grok" if platform == "grok" else "other", "wallets": wallets, "walletProofs": proofs, "custody": "self",
+    body = {"botId": name, "platform": platform if platform in BOT_PLATFORMS else "other", "wallets": wallets, "walletProofs": proofs, "custody": "self",
             "operator": operator or None, "emailCommit": email_commit, "limitsCommit": w.get("limitsCommit")}
     payload = {"v": 1, "chainId": 5680, "type": "bind", "agent": addr, "seq": seq, "ts": int(time.time() * 1000), "body": body}
     state["seq"] = seq; tmp = stf + ".tmp"; json.dump(state, open(tmp, "w")); os.chmod(tmp, 0o600); os.replace(tmp, stf)
@@ -82,7 +83,7 @@ def onboard(row, start):
     if not NAME.match(name): raise RuntimeError("bad name")
     if op and not ADDR.match(op): raise RuntimeError("bad operator")
     d = f"{DATA}/{name}"
-    if not os.path.exists(f"{d}/meta.json"): cli("init", "--name", name, "--label", f"{plat or 'linux'}"[:40])
+    if not os.path.exists(f"{d}/meta.json"): cli("init", "--name", name, "--label", ((row.get("label") or "").strip() or plat or "linux")[:40])
     addr = jload(f"{d}/meta.json")["address"]; s = summary(addr)
     if not s:  # signed register via one short run
         lk = locked(d)
@@ -96,7 +97,7 @@ def onboard(row, start):
         if not s: raise RuntimeError("register not confirmed")
     if not os.path.exists(f"{d}/wallet.json"):
         cli("wallet", "create", "--bot", name, "--network", "base", *(["--email", email] if email else [])); s = summary(addr)
-    if (op and (s.get("operator") or "").lower() != op.lower()) or (plat == "grok" and s.get("platform") != "grok"):
+    if (op and (s.get("operator") or "").lower() != op.lower()) or (plat in BOT_PLATFORMS and plat != "other" and s.get("platform") != plat):
         lk = locked(d)
         if not lk: raise RuntimeError("agent is running; stop it to set operator/platform")
         try: rebind(d, name, addr, op, plat, s)

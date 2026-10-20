@@ -9,6 +9,24 @@ Thin plugins that give any agent framework an SCDO per-agent x402 wallet (USDC o
 | `scdo-agent-mcp` (PyPI, Python MCP stdio server, `uvx scdo-agent-mcp`) | `packages/mcp-python` |
 | `scdo-agent-tools` (PyPI, Python and LangChain) | `python/scdo-agent-tools` |
 
+## One-line install (Linux server, no root)
+
+```sh
+curl -fsSL https://scdo.com.au/agent/install.sh | sh                                   # one agent
+curl -fsSL https://scdo.com.au/agent/install.sh | sh -s -- --name rack-a --platform x --systemd
+curl -fsSL https://scdo.com.au/agent/install.sh | sh -s -- --bulk bots.csv --out out.csv   # many bots
+```
+
+`bots.csv`:
+
+```csv
+name,operator,platform,label,email
+rack-a,0xYourOperatorAddress,x,Support bot on X,
+rack-b,,telegram,Telegram helper,
+```
+
+Each agent gets a local key (mode 0600, never printed or sent), a signed Agent Ledger registration and its own Base USDC x402 wallet. Supported CPUs: amd64 and arm64. Platforms: grok, x, binance, telegram, linkedin, other. Ledger: https://scdo.com.au/agent-ledger/ . Script and sha256: https://scdo.com.au/agent/
+
 ## Install
 
 Release tarballs and Python wheels: https://github.com/SCDOLAB/scdo-agent-plugins/releases/tag/v0.1.0
