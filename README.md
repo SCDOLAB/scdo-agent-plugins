@@ -1,6 +1,6 @@
 # SCDO agent plugins
 
-[![scdo-agent-plugins MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/SCDOLAB/scdo-agent-plugins/badges/score.svg)](https://glama.ai/mcp/servers/SCDOLAB/scdo-agent-plugins)
+[![scdo-agent-plugins MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/SCDOLAB/scdo-agent-plugins/badges/score.svg)](https://glama.ai/mcp/servers/SCDOLAB/scdo-agent-plugins) [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/scdolab/scdo-agent-plugins)
 
 Thin plugins that give any agent framework an SCDO per-agent x402 wallet (USDC on Base, plus SCDO), signed heartbeats and booked income, on top of `scdo-agent` 0.5.8 and the SCDO Agent Ledger. Free, MIT licence.
 
