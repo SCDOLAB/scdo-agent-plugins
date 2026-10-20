@@ -366,3 +366,49 @@ export function decodePayment(s) {
   if (t.startsWith("{")) return JSON.parse(t);
   return JSON.parse(Buffer.from(t, "base64").toString("utf8"));
 }
+
+// ---- SCDO x402 paywall: charge per call (USDC on Base, payTo = the agent's own wallet) ----
+export const FACILITATORS = { base: "https://scdo.com.au/x402-base", "base-sepolia": "https://x402.org/facilitator" };
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64");
+
+/**
+ * createPaywall({ bot, price: "0.01", network: "base" | "base-sepolia", agent? }) -> { middleware, requirements, settle }
+ * middleware(req, res, next) works with Express, Connect and plain node:http (call without next to only gate).
+ * A paid call is verified + settled by the facilitator (it pays gas) and booked as income on the SCDO x402 Agent Ledger.
+ */
+export function createPaywall({ bot, price = "0.01", network, agent, payTo, facilitator, description = "SCDO x402 paid API call", book = true, log = (m) => console.error(m) } = {}) {
+  const a = agent || new ScdoAgent({ network });
+  const net = parseNetwork(network || a.network);
+  const atomic = checkAmount(usdcToAtomic(price));
+  const to = payTo || a.walletDoc(bot)?.address;
+  if (!to) throw new ScdoError("wallet", `no SCDO x402 wallet for ${bot}; create it first`);
+  const fac = (facilitator || FACILITATORS[net]).replace(/\/+$/, "");
+  const n = NETWORKS[net];
+  const requirements = () => ({ scheme: "exact", network: n.id, asset: n.usdc, amount: String(atomic), payTo: to, maxTimeoutSeconds: 120,
+    extra: { name: net === "base-sepolia" ? "USDC" : "USD Coin", version: "2" } });
+  const post = async (path, body) => { const r = await a.fetch(fac + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); return [r.status, await r.json().catch(() => ({}))]; };
+  async function settle(header) {
+    let payload; try { payload = JSON.parse(Buffer.from(String(header), "base64").toString()); } catch { return [null, "bad payment header"]; }
+    const reqs = requirements(); const acc = payload.accepted || {};
+    if (payload.accepted && (String(acc.payTo).toLowerCase() !== to.toLowerCase() || String(acc.amount) !== reqs.amount || acc.network !== reqs.network)) return [null, "payment does not match the requirements"];
+    const body = { x402Version: 2, paymentPayload: payload, paymentRequirements: reqs };
+    const [vs, v] = await post("/verify", body); if (vs !== 200 || !v.isValid) return [null, `verify failed: ${v.invalidReason || v.error || vs}`];
+    const [ss, s] = await post("/settle", body); if (ss !== 200 || !s.success) return [null, `settle failed: ${s.errorReason || s.error || ss}`];
+    log(`paid ${atomicToUsdc(atomic)} USDC tx ${s.transaction}`);
+    if (book) a.bookIncome({ bot, paymentPayload: payload, paymentRequirements: reqs, settlement: s }).then((r) => log(`ledger income entry ${r.entry.id}`), (e) => log(`ledger booking failed: ${e.message}`));
+    return [s, null];
+  }
+  async function middleware(req, res, next) {
+    const h = req.headers["payment-signature"] || req.headers["x-payment"];
+    const [s, err] = h ? await settle(h) : [null, null];
+    if (!s) {
+      const body = { x402Version: 2, error: err || "Payment required", resource: { url: `http://${req.headers.host || ""}${req.url}`, description, mimeType: "application/json" }, accepts: [requirements()] };
+      res.writeHead(402, { "content-type": "application/json", "cache-control": "no-store", "PAYMENT-REQUIRED": b64(body) });
+      res.end(JSON.stringify(body)); return false;
+    }
+    res.setHeader("PAYMENT-RESPONSE", b64(s));
+    if (next) next();
+    return true;
+  }
+  return { middleware, requirements, settle, payTo: to, network: net };
+}

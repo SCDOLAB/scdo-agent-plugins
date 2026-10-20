@@ -1,6 +1,12 @@
 // @scdo/plugin-eliza: SCDO per-agent x402 wallet for ElizaOS agents.
 // Keys stay in the local scdo-agent data dir. Docs: https://scdo.com.au/linux-agent/
-import { ScdoAgent, ScdoError, CAPS, atomicToUsdc } from "./scdo-core.js";
+import { ScdoAgent, ScdoError, CAPS, atomicToUsdc, createPaywall } from "./scdo-core.js";
+
+/** Charge per call for your bot's API: app.use(scdoPaywall(runtime, { price: "0.01" })) (Express/Connect/node:http). */
+export function scdoPaywall(runtime, opts = {}) {
+  return createPaywall({ bot: botName(runtime), agent: agentFor(runtime), network: setting(runtime, "SCDO_AGENT_NETWORK", "base"), ...opts }).middleware;
+}
+export { createPaywall };
 
 const URL_RE = /https?:\/\/[^\s<>"')]+/i;
 const USDC_RE = /(\d+(?:\.\d{1,6})?)\s*(?:usdc|\$)/i;
