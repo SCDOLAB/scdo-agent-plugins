@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scdo-agent-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server (Python) for SCDO per-agent x402 wallets: Base USDC payments, signed heartbeats and booked income."
 readme = "README.md"
 license = "MIT"
