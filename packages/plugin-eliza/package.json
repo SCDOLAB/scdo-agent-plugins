@@ -1,6 +1,6 @@
 {
   "name": "@scdo/plugin-eliza",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "SCDO x402 wallet plugin for ElizaOS: the agent gets its own USDC wallet on Base (key generated locally), pays x402 URLs and books signed rows on the SCDO x402 Agent Ledger.",
   "license": "MIT",
   "type": "module",

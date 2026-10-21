@@ -80,6 +80,14 @@ export function findBin(env = process.env) {
   return null;
 }
 
+/** Numeric x.y.z compare; a missing or unparsable version counts as 0.0.0. */
+export function compareVersions(a, b) {
+  const p = (v) => (String(v || "").match(/^(\d+)\.(\d+)\.(\d+)/) || [0, 0, 0, 0]).slice(1).map(Number);
+  const x = p(a), y = p(b);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i] ? 1 : -1;
+  return 0;
+}
+
 /**
  * Download the scdo-agent CLI (Linux amd64/arm64) from the SCDO feed into ~/.scdo-agent/bin, sha256-checked.
  * Used when the CLI is missing so a framework plugin works after a single `npm i`. Set SCDO_AGENT_NO_DOWNLOAD=1 to disable.
@@ -142,11 +150,28 @@ export class ScdoAgent {
 
   /** Run the CLI with English output and an explicit data dir. Returns {code, stdout, stderr}. */
   async ensureBin() {
-    if (this.bin && existsSync(this.bin)) return this.bin;
+    if (this.bin && existsSync(this.bin)) { await this.maybeUpgrade(); return this.bin; }
     if (String(this.env.SCDO_AGENT_NO_DOWNLOAD || "") === "1") return this.requireBin();
     if (!this._installing) this._installing = installBin(this.env, this.fetch).finally(() => { this._installing = null; });
     this.bin = await this._installing;
     return this.bin;
+  }
+
+  /**
+   * Upgrade the CLI copy this module installed (~/.scdo-agent/bin/scdo-agent) when the signed feed has a newer
+   * version, once per process. 0.5.10+ self-mints the agent's ERC-8004 identity (Agent Ledger "verified").
+   * A CLI from PATH or SCDO_AGENT_BIN is never touched. SCDO_AGENT_NO_UPDATE=1 or SCDO_AGENT_NO_DOWNLOAD=1 disables it.
+   */
+  async maybeUpgrade() {
+    if (this._upgradeChecked) return;
+    this._upgradeChecked = true;
+    if (String(this.env.SCDO_AGENT_NO_UPDATE || "") === "1" || String(this.env.SCDO_AGENT_NO_DOWNLOAD || "") === "1") return;
+    if (this.bin !== join(this.env.HOME || homedir(), ".scdo-agent", "bin", "scdo-agent")) return;
+    try {
+      const feed = await (await this.fetch(this.env.SCDO_FEED || FEED_URL)).json();
+      const cur = await new Promise((res) => execFile(this.bin, ["--version"], { timeout: 10000 }, (e, out) => res(e ? "" : (String(out).match(/(\d+\.\d+\.\d+)/) || [])[1] || "")));
+      if (feed && feed.version && compareVersions(feed.version, cur) > 0) this.bin = await installBin(this.env, this.fetch);
+    } catch { /* keep the current CLI */ }
   }
 
   async run(args, { timeoutMs } = {}) {
