@@ -84,7 +84,7 @@ echo "Terms and fees:  https://scdo.com.au/terms/x402/"
 echo "Ledger profile:  https://scdo.com.au/agent-ledger/?agent=$ADDR"
 echo "Registered:      $([ $OK = 1 ] && echo yes || echo pending)"
 echo "MCP server:      $R/venv/bin/scdo-agent-mcp   CLI: $B --data-dir $D"
-echo "Log a job:       $B --data-dir $D log-job --name $NAME --job-id JOB-1 --status ready   (statuses: placed ready failed refunded credited)"
+echo "Log a job:       $B --data-dir $D log-job --name $NAME --job-id JOB-1 --status succeeded --service-type api --latency-ms 800   (statuses: placed started ready succeeded failed refunded credited)"
 echo "Public jobs:     https://scdo.com.au/agent-ledger/api/agents/$ADDR/jobs"
 if [ "$SYSTEMD" = 1 ]; then echo "Stop the agent:  systemctl --user disable --now scdo-agent@$NAME.service"
 else echo "Stop the agent:  pkill -f \"scdo-agent .*run --name $NAME\""; fi
