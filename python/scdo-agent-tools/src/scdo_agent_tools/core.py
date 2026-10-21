@@ -285,22 +285,26 @@ class ScdoAgent:
             return None
         return {"bot": w.get("botId") or name, "address": w.get("address"), "network": w.get("network"), "killed": bool(w.get("killed"))}
 
-    def log_job(self, bot: str, job_id: str, status: str, gpu_type: Optional[str] = None, provider: Optional[str] = None,
-                provider_hash: Optional[str] = None, duration_s: Optional[int] = None, amount: Optional[str] = None,
-                currency: Optional[str] = None, evidence_tx: Optional[str] = None, note: Optional[str] = None) -> dict:
-        """Sign one job outcome with the agent key and publish it on the SCDO Agent Ledger (no payment).
-        status: placed | ready | failed | refunded | credited. evidence_tx: optional Base mainnet tx hash (must exist).
-        provider_hash publishes sha256(text) instead of the provider name. Needs scdo-agent 0.5.11+.
-        Public: https://scdo.com.au/agent-ledger/api/agents/<agent>/jobs"""
-        if status not in ("placed", "ready", "failed", "refunded", "credited"):
-            raise ScdoError("status", "status must be placed, ready, failed, refunded or credited")
+    def log_job(self, bot: str, job_id: str, status: str, service_type: Optional[str] = None, latency_ms: Optional[int] = None,
+                duration_s: Optional[int] = None, error_class: Optional[str] = None, amount: Optional[str] = None,
+                currency: Optional[str] = None, refund_amount: Optional[str] = None, payment_tx: Optional[str] = None,
+                provider: Optional[str] = None, provider_hash: Optional[str] = None, gpu_type: Optional[str] = None,
+                note: Optional[str] = None, evidence_tx: Optional[str] = None) -> dict:
+        """Sign one job outcome for any paid service (GPU, API, data, ...) with the agent key and publish it on the
+        SCDO Agent Ledger. No payment. status: placed | started | ready | succeeded | failed | refunded | credited.
+        payment_tx (alias evidence_tx): optional Base mainnet tx hash, must exist. provider_hash publishes sha256(text).
+        Needs scdo-agent 0.5.11+. Public: https://scdo.com.au/agent-ledger/api/agents/<agent>/jobs"""
+        if status not in ("placed", "started", "ready", "succeeded", "failed", "refunded", "credited"):
+            raise ScdoError("status", "status must be placed, started, ready, succeeded, failed, refunded or credited")
         args = ["log-job", "--name", _name(bot), "--job-id", str(job_id), "--status", status, "--json"]
-        for flag, val in (("--gpu-type", gpu_type), ("--provider", provider), ("--provider-hash", provider_hash),
-                          ("--amount", amount), ("--currency", currency), ("--evidence-tx", evidence_tx), ("--note", note)):
+        for flag, val in (("--service-type", service_type), ("--error-class", error_class), ("--amount", amount),
+                          ("--currency", currency), ("--refund-amount", refund_amount), ("--payment-tx", payment_tx or evidence_tx),
+                          ("--provider", provider), ("--provider-hash", provider_hash), ("--gpu-type", gpu_type), ("--note", note)):
             if val is not None and val != "":
                 args += [flag, str(val)]
-        if duration_s is not None:
-            args += ["--duration-s", str(int(duration_s))]
+        for flag, val in (("--latency-ms", latency_ms), ("--duration-s", duration_s)):
+            if val is not None:
+                args += [flag, str(int(val))]
         code, out, err = self.run(args)
         if code != 0:
             raise ScdoError("log_job", (err or out or "log-job failed").strip())
