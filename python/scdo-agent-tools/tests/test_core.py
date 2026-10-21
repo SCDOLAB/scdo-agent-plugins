@@ -133,3 +133,15 @@ def test_default_data_dir_prefers_oneliner(tmp_path):
     assert default_data_dir({"HOME": str(tmp_path)}) == str(tmp_path / ".scdo-agent" / "data")
     (tmp_path / ".local" / "share" / "scdo-agent").mkdir(parents=True)
     assert default_data_dir({"HOME": str(tmp_path)}) == str(tmp_path / ".local" / "share" / "scdo-agent")
+
+
+def test_log_job(tmp_path):
+    a = mk(tmp_path)
+    a.register_agent("kw", heartbeats=False)
+    r = a.log_job("kw", "job-1", "credited", gpu_type="H100", provider_hash="acme", duration_s=12, amount="0.5", currency="USDC")
+    assert r["ok"] and r["job"]["status"] == "credited" and r["publicUrl"].endswith("/jobs")
+    call = json.loads((tmp_path / "calls.log").read_text().splitlines()[-1])
+    assert "--provider-hash" in call and "--duration-s" in call and "--json" in call
+    with pytest.raises(ScdoError):
+        a.log_job("kw", "job-2", "done")
+    assert a.link_erc8004("kw", 7)["agentId"] == "7"

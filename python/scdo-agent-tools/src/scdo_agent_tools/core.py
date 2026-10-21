@@ -285,6 +285,36 @@ class ScdoAgent:
             return None
         return {"bot": w.get("botId") or name, "address": w.get("address"), "network": w.get("network"), "killed": bool(w.get("killed"))}
 
+    def log_job(self, bot: str, job_id: str, status: str, gpu_type: Optional[str] = None, provider: Optional[str] = None,
+                provider_hash: Optional[str] = None, duration_s: Optional[int] = None, amount: Optional[str] = None,
+                currency: Optional[str] = None, evidence_tx: Optional[str] = None, note: Optional[str] = None) -> dict:
+        """Sign one job outcome with the agent key and publish it on the SCDO Agent Ledger (no payment).
+        status: placed | ready | failed | refunded | credited. evidence_tx: optional Base mainnet tx hash (must exist).
+        provider_hash publishes sha256(text) instead of the provider name. Needs scdo-agent 0.5.11+.
+        Public: https://scdo.com.au/agent-ledger/api/agents/<agent>/jobs"""
+        if status not in ("placed", "ready", "failed", "refunded", "credited"):
+            raise ScdoError("status", "status must be placed, ready, failed, refunded or credited")
+        args = ["log-job", "--name", _name(bot), "--job-id", str(job_id), "--status", status, "--json"]
+        for flag, val in (("--gpu-type", gpu_type), ("--provider", provider), ("--provider-hash", provider_hash),
+                          ("--amount", amount), ("--currency", currency), ("--evidence-tx", evidence_tx), ("--note", note)):
+            if val is not None and val != "":
+                args += [flag, str(val)]
+        if duration_s is not None:
+            args += ["--duration-s", str(int(duration_s))]
+        code, out, err = self.run(args)
+        if code != 0:
+            raise ScdoError("log_job", (err or out or "log-job failed").strip())
+        line = [x for x in out.splitlines() if x.strip().startswith("{")]
+        return json.loads(line[-1]) if line else {"ok": True, "output": out.strip()}
+
+    def link_erc8004(self, bot: str, agent_id: int) -> dict:
+        """Link an ERC-8004 agentId from the Base mainnet IdentityRegistry (0x8004A169FB4a3325136EB29fA0ceB6D2e539a432).
+        ownerOf(agentId) or getAgentWallet(agentId) must be this agent's address. Needs scdo-agent 0.5.11+."""
+        code, out, err = self.run(["link-8004", "--name", _name(bot), "--agent-id", str(int(agent_id))])
+        if code != 0:
+            raise ScdoError("link_erc8004", (err or out or "link-8004 failed").strip())
+        return {"ok": True, "agentId": str(int(agent_id)), "output": out.strip()}
+
     # ---- tools ----
     def register_agent(self, name: str, payout: Optional[str] = None, label: Optional[str] = None, heartbeats: bool = True) -> dict:
         _name(name, "name")

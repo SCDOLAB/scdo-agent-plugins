@@ -19,6 +19,11 @@ elif cmd == "pay":
         print(f"Would pay {os.environ.get('FAKE_PRICE', '100000')} atomic units to 0x7f2F5DAB6B07b32b65286252bEd2d3c6C8081599.")
     else:
         print("Transaction: https://basescan.org/tx/0x" + "ab" * 32); print("Ledger: booked")
+elif cmd == "log-job":
+    print(json.dumps({"ok": True, "agent": "0x12522c713D49453f0FfD98A3D16Fca7aD4671960", "job": {"job_id": get("--job-id"), "status": get("--status")},
+                      "publicUrl": "https://scdo.com.au/agent-ledger/api/agents/0x12522c713D49453f0FfD98A3D16Fca7aD4671960/jobs"}))
+elif cmd == "link-8004":
+    print("Linked ERC-8004 agentId " + get("--agent-id"))
 elif cmd == "run":
     time.sleep(30)
 else:
