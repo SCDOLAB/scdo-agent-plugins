@@ -98,3 +98,30 @@ def test_langchain_tools(tmp_path):
     assert out["agent"].startswith("0x1252")
     bad = json.loads(tools["pay_x402"].invoke({"bot": "l1", "url": "http://x/a", "max_usdc": "5"}))
     assert bad["ok"] is False
+
+
+def test_compare_versions():
+    from scdo_agent_tools.core import compare_versions
+    assert compare_versions("0.5.10", "0.5.9") == 1
+    assert compare_versions("0.5.9", "0.5.10") == -1
+    assert compare_versions("0.5.10", "0.5.10") == 0
+    assert compare_versions("0.5.10", "") == 1
+
+
+def test_cli_upgrade_only_own_copy(tmp_path):
+    home = tmp_path / "home"; d = home / ".scdo-agent" / "bin"; d.mkdir(parents=True)
+    own = d / "scdo-agent"; own.write_text("#!/bin/sh\necho 'scdo-agent 0.5.10'\n"); own.chmod(0o755)
+    feeds = []
+    def feed(self):
+        feeds.append(1); return {"version": "0.5.10"}
+    orig = ScdoAgent._feed; ScdoAgent._feed = feed
+    try:
+        a = ScdoAgent(bin=str(own), data_dir=str(tmp_path), env={"HOME": str(home), "PATH": os.environ["PATH"]})
+        assert a._require_bin() == str(own); a._require_bin()
+        assert len(feeds) == 1
+        ScdoAgent(bin=FAKE, data_dir=str(tmp_path), env={"HOME": str(home), "PATH": os.environ["PATH"]})._require_bin()
+        assert len(feeds) == 1
+        ScdoAgent(bin=str(own), data_dir=str(tmp_path), env={"HOME": str(home), "SCDO_AGENT_NO_UPDATE": "1"})._require_bin()
+        assert len(feeds) == 1
+    finally:
+        ScdoAgent._feed = orig

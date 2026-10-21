@@ -131,6 +131,15 @@ def install_bin(env=os.environ) -> str:
     return str(out)
 
 
+def compare_versions(a: Any, b: Any) -> int:
+    """Numeric x.y.z compare; a missing or unparsable version counts as 0.0.0."""
+    def p(v):
+        m = re.match(r"^(\d+)\.(\d+)\.(\d+)", str(v or ""))
+        return tuple(int(x) for x in m.groups()) if m else (0, 0, 0)
+    x, y = p(a), p(b)
+    return (x > y) - (x < y)
+
+
 def scrub(text: str) -> str:
     return re.sub(r"(private[_ ]?key|mnemonic|seed|passphrase)\s*[:=]\s*\S+", r"\1: [redacted]", text or "", flags=re.I)
 
@@ -175,7 +184,37 @@ class ScdoAgent:
         self.timeout = timeout
 
     # ---- plumbing ----
+    def _own_bin(self) -> str:
+        return str(Path(self.env.get("HOME") or Path.home()) / ".scdo-agent" / "bin" / "scdo-agent")
+
+    def maybe_upgrade(self) -> None:
+        """Upgrade the CLI copy this module installed (~/.scdo-agent/bin/scdo-agent) when the signed feed has a newer
+        version, once per process. 0.5.10+ self-mints the agent's ERC-8004 identity (Agent Ledger "verified").
+        A CLI from PATH or SCDO_AGENT_BIN is never touched. SCDO_AGENT_NO_UPDATE=1 or SCDO_AGENT_NO_DOWNLOAD=1 disables it."""
+        if getattr(self, "_upgrade_checked", False):
+            return
+        self._upgrade_checked = True
+        if self.env.get("SCDO_AGENT_NO_UPDATE") == "1" or self.env.get("SCDO_AGENT_NO_DOWNLOAD") == "1":
+            return
+        if self.bin != self._own_bin():
+            return
+        try:
+            feed = self._feed()
+            out = subprocess.run([self.bin, "--version"], capture_output=True, text=True, timeout=10).stdout
+            m = re.search(r"(\d+\.\d+\.\d+)", out or "")
+            if feed and feed.get("version") and compare_versions(feed["version"], m.group(1) if m else "") > 0:
+                self.bin = install_bin(self.env)
+        except Exception:
+            pass  # keep the current CLI
+
+    def _feed(self) -> dict:
+        req = urllib.request.Request(self.env.get("SCDO_FEED") or FEED_URL, headers={"user-agent": "scdo-agent-tools"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.load(r)
+
     def _require_bin(self) -> str:
+        if self.bin and Path(self.bin).exists():
+            self.maybe_upgrade()
         if (not self.bin or not Path(self.bin).exists()) and self.env.get("SCDO_AGENT_NO_DOWNLOAD") != "1":
             self.bin = install_bin(self.env)
         if not self.bin or not Path(self.bin).exists():
