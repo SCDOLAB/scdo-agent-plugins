@@ -84,7 +84,11 @@ def _name(n: Any, field: str = "bot") -> str:
 def default_data_dir(env=os.environ) -> str:
     if env.get("SCDO_AGENT_DATA", "").strip():
         return env["SCDO_AGENT_DATA"].strip()
-    user = Path(env.get("HOME") or Path.home()) / ".local" / "share" / "scdo-agent"
+    home = Path(env.get("HOME") or Path.home())
+    user = home / ".local" / "share" / "scdo-agent"
+    oneliner = home / ".scdo-agent" / "data"  # where https://scdo.com.au/agent/install.sh keeps agents
+    if not user.exists() and oneliner.is_dir():
+        return str(oneliner)
     if user.exists() or not Path("/var/lib/scdo-agent").exists():
         return str(user)
     return "/var/lib/scdo-agent"

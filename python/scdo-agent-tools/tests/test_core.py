@@ -125,3 +125,11 @@ def test_cli_upgrade_only_own_copy(tmp_path):
         assert len(feeds) == 1
     finally:
         ScdoAgent._feed = orig
+
+
+def test_default_data_dir_prefers_oneliner(tmp_path):
+    from scdo_agent_tools.core import default_data_dir
+    (tmp_path / ".scdo-agent" / "data").mkdir(parents=True)
+    assert default_data_dir({"HOME": str(tmp_path)}) == str(tmp_path / ".scdo-agent" / "data")
+    (tmp_path / ".local" / "share" / "scdo-agent").mkdir(parents=True)
+    assert default_data_dir({"HOME": str(tmp_path)}) == str(tmp_path / ".local" / "share" / "scdo-agent")
