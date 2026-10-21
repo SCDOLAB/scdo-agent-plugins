@@ -113,3 +113,31 @@ test("heartbeats start detached", async () => {
   assert.equal(r.heartbeats, "started");
   assert.ok(existsSync(join(dataDir, "h1", "plugin-run.log")));
 });
+
+test("compareVersions is numeric", async () => {
+  const { compareVersions } = await import("../src/core.js");
+  assert.equal(compareVersions("0.5.10", "0.5.9"), 1);
+  assert.equal(compareVersions("0.5.9", "0.5.10"), -1);
+  assert.equal(compareVersions("0.5.10", "0.5.10"), 0);
+  assert.equal(compareVersions("0.5.10", ""), 1);
+});
+
+test("CLI upgrade check: only the self-installed copy, only when the feed is newer", async () => {
+  const { writeFileSync, mkdirSync, chmodSync } = await import("node:fs");
+  const home = mkdtempSync(join(tmpdir(), "scdo-home-"));
+  const dir = join(home, ".scdo-agent", "bin"); mkdirSync(dir, { recursive: true });
+  const own = join(dir, "scdo-agent");
+  writeFileSync(own, "#!/bin/sh\necho 'scdo-agent 0.5.10'\n"); chmodSync(own, 0o755);
+  const feeds = [];
+  const fetch = async (url) => { feeds.push(url); return new Response(JSON.stringify({ version: "0.5.10" })); };
+  const same = new ScdoAgent({ bin: own, dataDir: tmpdir(), fetch, env: { HOME: home, PATH: process.env.PATH } });
+  assert.equal(await same.ensureBin(), own);
+  await same.ensureBin();
+  assert.equal(feeds.length, 1); // checked once per process, no download when current
+  const other = new ScdoAgent({ bin: FAKE, dataDir: tmpdir(), fetch, env: { HOME: home, PATH: process.env.PATH } });
+  await other.ensureBin();
+  assert.equal(feeds.length, 1); // a CLI from PATH / SCDO_AGENT_BIN is never touched
+  const off = new ScdoAgent({ bin: own, dataDir: tmpdir(), fetch, env: { HOME: home, SCDO_AGENT_NO_UPDATE: "1" } });
+  await off.ensureBin();
+  assert.equal(feeds.length, 1);
+});
