@@ -138,10 +138,10 @@ def test_default_data_dir_prefers_oneliner(tmp_path):
 def test_log_job(tmp_path):
     a = mk(tmp_path)
     a.register_agent("kw", heartbeats=False)
-    r = a.log_job("kw", "job-1", "credited", gpu_type="H100", provider_hash="acme", duration_s=12, amount="0.5", currency="USDC")
-    assert r["ok"] and r["job"]["status"] == "credited" and r["publicUrl"].endswith("/jobs")
+    r = a.log_job("kw", "job-1", "refunded", service_type="api", latency_ms=830, error_class="timeout", provider_hash="acme", duration_s=12, amount="0.5", refund_amount="0.5", currency="USDC")
+    assert r["ok"] and r["job"]["status"] == "refunded" and r["publicUrl"].endswith("/jobs")
     call = json.loads((tmp_path / "calls.log").read_text().splitlines()[-1])
-    assert "--provider-hash" in call and "--duration-s" in call and "--json" in call
+    assert "--provider-hash" in call and "--latency-ms" in call and "--refund-amount" in call and "--service-type" in call and "--json" in call
     with pytest.raises(ScdoError):
         a.log_job("kw", "job-2", "done")
     assert a.link_erc8004("kw", 7)["agentId"] == "7"
