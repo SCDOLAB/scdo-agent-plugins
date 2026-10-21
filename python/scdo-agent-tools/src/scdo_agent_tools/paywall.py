@@ -1,8 +1,13 @@
-"""SCDO x402 paywall: charge per call for any HTTP endpoint. USDC on Base, paid to the agent's SCDO 0xSplits split
+"""SCDO x402 paywall: charge per call for any HTTP endpoint. USDC (or, optionally, AUDM) on Base, paid to the agent's SCDO 0xSplits split
 (40% to the agent's wallet, 60% SCDO fee; the split is distributed automatically after each settle).
 
     scdo-agent-serve --bot my-bot --price 0.01 --upstream http://localhost:8000          # Base mainnet
     scdo-agent-serve --bot my-bot --price 0.01 --upstream http://localhost:8000 --network base-sepolia
+    scdo-agent-serve --bot my-bot --price 0.10 --asset AUDM --upstream http://localhost:8000      # AUD stablecoin, Base mainnet
+
+AUDM (Macropod, 18 decimals) has no EIP-3009, so it is offered with the x402 exact scheme's Permit2 path
+(extra.assetTransferMethod "permit2" + the eip2612GasSponsoring extension): the payer signs, needs no ETH, and the
+SCDO relay forwards to the facilitator, which settles through x402ExactPermit2Proxy to the same split.
 
 Unpaid requests get HTTP 402 with x402 v2 requirements (PAYMENT-REQUIRED header). A paid request (PAYMENT-SIGNATURE
 or X-PAYMENT header) is verified and settled by the facilitator (it pays the gas), forwarded to the upstream, and the
@@ -21,7 +26,10 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Optional
 
-from .core import NETWORKS, ScdoAgent, ScdoError, atomic_to_usdc, check_amount, parse_network, usdc_to_atomic
+from .core import (AUDM, NETWORKS, ScdoAgent, ScdoError, atomic_to_aud, atomic_to_usdc, aud_to_atomic, check_amount,
+                   check_audm_amount, parse_network, usdc_to_atomic)
+
+ASSETS = ("USDC", "AUDM")
 
 FACILITATORS = {"base": "https://scdo.com.au/x402-base", "base-sepolia": "https://x402.org/facilitator"}
 HOP = {"connection", "keep-alive", "transfer-encoding", "te", "trailer", "upgrade", "proxy-authorization", "proxy-connection", "host", "content-length"}
@@ -68,7 +76,7 @@ def split_terms(split: dict) -> str:
 class Paywall:
     def __init__(self, bot: str, price: str = "0.01", network: Optional[str] = None, agent: Optional[ScdoAgent] = None,
                  pay_to: Optional[str] = None, facilitator: Optional[str] = None, description: str = "SCDO x402 paid API call",
-                 book: bool = True, post=_post, log=lambda m: print(m, file=sys.stderr, flush=True)):
+                 book: bool = True, post=_post, log=lambda m: print(m, file=sys.stderr, flush=True), asset: str = "USDC"):
         if agent is None:
             import os
             agent = ScdoAgent(network=network)
@@ -77,7 +85,12 @@ class Paywall:
                 agent = ScdoAgent(data_dir=alt, network=network)
         self.agent = agent
         self.bot, self.network = bot, parse_network(network or self.agent.network)
-        self.atomic = check_amount(usdc_to_atomic(price))
+        self.asset = str(asset or "USDC").upper()
+        if self.asset not in ASSETS:
+            raise ScdoError("asset", f'asset must be "USDC" or "AUDM", got {asset}')
+        if self.asset == "AUDM" and self.network not in AUDM:
+            raise ScdoError("asset", "AUDM is only offered on Base mainnet (--network base)")
+        self.atomic = check_audm_amount(aud_to_atomic(price)) if self.asset == "AUDM" else check_amount(usdc_to_atomic(price))
         self.facilitator = (facilitator or FACILITATORS[self.network]).rstrip("/")
         meta = self.agent.meta(bot) or {}
         self.agent_address = meta.get("address")
@@ -96,19 +109,30 @@ class Paywall:
         self.description, self.book, self.post, self.log = description, book, post, log
         self.earned, self.calls, self._lock = 0, 0, threading.Lock()
 
+    def fmt(self, atomic: int) -> str:
+        return f"{atomic_to_aud(atomic)} AUDM" if self.asset == "AUDM" else f"{atomic_to_usdc(atomic)} USDC"
+
     def requirements(self) -> dict:
         n = NETWORKS[self.network]
+        if self.asset == "AUDM":
+            return {"scheme": "exact", "network": n["id"], "asset": AUDM[self.network], "amount": str(self.atomic), "payTo": self.pay_to,
+                    "maxTimeoutSeconds": 300, "extra": self._extra()}
         return {"scheme": "exact", "network": n["id"], "asset": n["usdc"], "amount": str(self.atomic), "payTo": self.pay_to,
                 "maxTimeoutSeconds": 120, "extra": self._extra()}
 
     def _extra(self) -> dict:
-        e = {"name": "USDC" if self.network == "base-sepolia" else "USD Coin", "version": "2"}
+        if self.asset == "AUDM":   # EIP-712 domain of AUDM on Base: name "Macropod", version "1"
+            e = {"name": "Macropod", "version": "1", "assetTransferMethod": "permit2"}
+        else:
+            e = {"name": "USDC" if self.network == "base-sepolia" else "USD Coin", "version": "2"}
         if self.agent_address:
             e["scdoAgent"] = self.agent_address
         return e
 
     def challenge(self, url: str, error: str = "Payment required") -> tuple[int, dict, bytes]:
         body = {"x402Version": 2, "error": error, "resource": {"url": url, "description": self.description, "mimeType": "application/json"}, "accepts": [self.requirements()]}
+        if self.asset == "AUDM":   # gasless Permit2 approval: the payer signs an EIP-2612 permit, the facilitator submits it
+            body["extensions"] = {"eip2612GasSponsoring": {"info": {"description": "Sign an EIP-2612 permit to Permit2; the facilitator submits it, no ETH needed", "version": "1"}}}
         return 402, {"PAYMENT-REQUIRED": b64(body), "content-type": "application/json", "cache-control": "no-store"}, json.dumps(body).encode()
 
     def settle(self, header: str) -> tuple[Optional[dict], Optional[str]]:
@@ -119,7 +143,8 @@ class Paywall:
             return None, "bad payment header"
         reqs = self.requirements()
         acc = payload.get("accepted") or {}
-        if acc and (str(acc.get("payTo", "")).lower() != self.pay_to.lower() or str(acc.get("amount")) != reqs["amount"] or acc.get("network") != reqs["network"]):
+        if acc and (str(acc.get("payTo", "")).lower() != self.pay_to.lower() or str(acc.get("amount")) != reqs["amount"] or acc.get("network") != reqs["network"]
+                    or (acc.get("asset") and str(acc.get("asset")).lower() != reqs["asset"].lower())):
             return None, "payment does not match the requirements"
         body = {"x402Version": 2, "paymentPayload": payload, "paymentRequirements": reqs}
         st, v = self.post(self.facilitator + "/verify", body)
@@ -130,7 +155,7 @@ class Paywall:
             return None, f"settle failed: {s.get('errorReason') or s.get('error') or st}"
         with self._lock:
             self.earned += self.atomic; self.calls += 1
-        self.log(f"paid {atomic_to_usdc(self.atomic)} USDC tx {s.get('transaction')} (total {atomic_to_usdc(self.earned)} USDC, {self.calls} calls)")
+        self.log(f"paid {self.fmt(self.atomic)} tx {s.get('transaction')} (total {self.fmt(self.earned)}, {self.calls} calls)")
         if self.book:
             threading.Thread(target=self._book, args=(payload, s, reqs), daemon=True).start()
         return s, None
@@ -195,19 +220,20 @@ def serve(pw: Paywall, upstream: str, host: str = "0.0.0.0", port: int = 8402, f
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="scdo-agent-serve", description="Charge per call for any HTTP endpoint with SCDO x402 (USDC on Base, paid to your agent's split: 40% agent, 60% SCDO fee).")
+    ap = argparse.ArgumentParser(prog="scdo-agent-serve", description="Charge per call for any HTTP endpoint with SCDO x402 (USDC or AUDM on Base, paid to your agent's split: 40% agent, 60% SCDO fee).")
     ap.add_argument("--bot", required=True, help="local SCDO agent name (on Base mainnet payTo is its 0xSplits split: 40%% agent, 60%% SCDO fee)")
-    ap.add_argument("--price", default="0.01", help="USDC per call, 0.001 to 1 (default 0.01)")
+    ap.add_argument("--price", default="0.01", help="price per call in --asset: USDC 0.001 to 1, AUDM 0.001 to 1.5 (default 0.01)")
+    ap.add_argument("--asset", default="USDC", choices=["USDC", "AUDM", "usdc", "audm"], help="USDC (default) or AUDM (AUD stablecoin by Macropod, Base mainnet only)")
     ap.add_argument("--upstream", required=True, help="your API, e.g. http://localhost:8000")
     ap.add_argument("--network", default=None, help="base (default) or base-sepolia")
     ap.add_argument("--port", type=int, default=8402); ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--data-dir", default=None); ap.add_argument("--no-book", action="store_true", help="do not book income on the ledger")
     a = ap.parse_args(argv)
-    pw = Paywall(a.bot, a.price, a.network, agent=ScdoAgent(data_dir=a.data_dir, network=a.network) if a.data_dir else None, book=not a.no_book)
+    pw = Paywall(a.bot, a.price, a.network, agent=ScdoAgent(data_dir=a.data_dir, network=a.network) if a.data_dir else None, book=not a.no_book, asset=a.asset)
     ag = pw.agent
     meta = ag.meta(a.bot) or {}
     srv = serve(pw, a.upstream, a.host, a.port)
-    print(f"SCDO x402 paywall on :{a.port} -> {a.upstream}\n  price {atomic_to_usdc(pw.atomic)} USDC per call on {NETWORKS[pw.network]['label']}, paid to {pw.pay_to}"
+    print(f"SCDO x402 paywall on :{a.port} -> {a.upstream}\n  price {pw.fmt(pw.atomic)} per call on {NETWORKS[pw.network]['label']}, paid to {pw.pay_to}"
           + (f"\n  = your agent's split: {split_terms(pw.split)} (agent wallet {pw.wallet})" if pw.split else "") + "\n"
           f"  earnings: https://scdo.com.au/agent-ledger/?agent={meta.get('address', '')}", flush=True)
     try:

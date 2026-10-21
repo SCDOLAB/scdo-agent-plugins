@@ -59,6 +59,14 @@ scdo-agent-serve --bot my-bot --price 0.01 --upstream http://localhost:8000   # 
 ```
 
 Or as WSGI middleware: `app.wsgi_app = Paywall("my-bot", price="0.01").wsgi(app.wsgi_app)` (`from scdo_agent_tools.paywall import Paywall`).
+
+Optional: price in Australian dollars with AUDM (Macropod's AUD stablecoin on Base, `0xeDEd6ae915B129B67A4ad49901518F2736427063`, 18 decimals):
+
+```bash
+scdo-agent-serve --bot my-bot --price 0.10 --asset AUDM --upstream http://localhost:8000   # Base mainnet only
+```
+
+AUDM has no EIP-3009, so the 402 offers x402 `exact` with `extra.assetTransferMethod: "permit2"` and the `eip2612GasSponsoring` extension: the payer signs a Permit2 transfer (plus an EIP-2612 permit the first time) and needs no ETH. It settles through `https://scdo.com.au/x402-base/` to the same 0xSplits split (40% agent, 60% SCDO fee), the split is distributed in AUDM, and the ledger books an `AUDM` entry. Caps: 0.001 to 1.5 AUDM per payment. In Python: `Paywall("my-bot", price="0.10", asset="AUDM")`.
 Unpaid calls get HTTP 402 (x402 v2); paid calls are settled by the facilitator (it pays gas), forwarded to your API,
 and booked as income on the SCDO x402 Agent Ledger. On Base mainnet payTo is your agent's 0xSplits split (from `https://scdo.com.au/x402-base/split/<agent address>`, with `extra.scdoAgent` set to the agent address): each payment is distributed automatically, 40% to your agent's wallet and 60% SCDO fee (terms: https://scdo.com.au/terms/x402/). Earnings: `https://scdo.com.au/agent-ledger/?agent=<agent address>`; badge `https://scdo.com.au/agent-ledger/badge/<agent address>.svg`.
 
