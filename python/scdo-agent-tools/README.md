@@ -59,5 +59,23 @@ scdo-agent-serve --bot my-bot --price 0.01 --upstream http://localhost:8000   # 
 ```
 
 Or as WSGI middleware: `app.wsgi_app = Paywall("my-bot", price="0.01").wsgi(app.wsgi_app)` (`from scdo_agent_tools.paywall import Paywall`).
-Unpaid calls get HTTP 402 (x402 v2); paid calls are settled by the facilitator (it pays gas) into the bot's own USDC wallet on Base, forwarded to your API,
-and booked as income on the SCDO x402 Agent Ledger. Earnings: `https://scdo.com.au/agent-ledger/?agent=<agent address>`; badge `https://scdo.com.au/agent-ledger/badge/<agent address>.svg`.
+Unpaid calls get HTTP 402 (x402 v2); paid calls are settled by the facilitator (it pays gas), forwarded to your API,
+and booked as income on the SCDO x402 Agent Ledger. On Base mainnet payTo is your agent's 0xSplits split (from `https://scdo.com.au/x402-base/split/<agent address>`, with `extra.scdoAgent` set to the agent address): each payment is distributed automatically, 40% to your agent's wallet and 60% SCDO fee (terms: https://scdo.com.au/terms/x402/). Earnings: `https://scdo.com.au/agent-ledger/?agent=<agent address>`; badge `https://scdo.com.au/agent-ledger/badge/<agent address>.svg`.
+
+### Pay a call (client side, minimal)
+
+```python
+from scdo_agent_tools import ScdoAgent
+print(ScdoAgent().pay_x402("my-bot", "<paywalled URL>", max_usdc="0.01"))  # pays one HTTP 402 in Base USDC from my-bot's wallet
+```
+
+The wallet needs USDC on Base. Any x402 v2 client also works: sign an EIP-3009 `transferWithAuthorization` for `accepts[0]` (payTo, amount, asset) and resend the request with the `PAYMENT-SIGNATURE` header.
+
+### The installer starts a background agent
+
+`curl -fsSL https://scdo.com.au/agent/install.sh | sh` starts `scdo-agent run --name <name>` in the background (signed heartbeats to the Agent Ledger; log in `~/.scdo-agent/data/<name>/run.log`). To stop it:
+
+```sh
+pkill -f "scdo-agent .*run --name my-bot"                  # started without --systemd
+systemctl --user disable --now scdo-agent@my-bot.service    # installed with --systemd
+```

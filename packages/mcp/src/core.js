@@ -392,7 +392,7 @@ export function decodePayment(s) {
   return JSON.parse(Buffer.from(t, "base64").toString("utf8"));
 }
 
-// ---- SCDO x402 paywall: charge per call (USDC on Base, payTo = the agent's own wallet) ----
+// ---- SCDO x402 paywall: charge per call (USDC on Base; on mainnet payTo = the agent's 0xSplits split: 40% agent, 60% SCDO fee) ----
 export const FACILITATORS = { base: "https://scdo.com.au/x402-base", "base-sepolia": "https://x402.org/facilitator" };
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64");
 
@@ -401,21 +401,40 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64");
  * middleware(req, res, next) works with Express, Connect and plain node:http (call without next to only gate).
  * A paid call is verified + settled by the facilitator (it pays gas) and booked as income on the SCDO x402 Agent Ledger.
  */
+/** GET <relay>/split/<agent>: the agent's 0xSplits split, the only payTo the SCDO relay settles to on Base mainnet. */
+export async function fetchSplit(a, facilitator, agentAddress) {
+  const url = `${facilitator.replace(/\/+$/, "")}/split/${agentAddress}`;
+  const r = await a.fetch(url, { headers: { accept: "application/json" } });
+  const d = await r.json().catch(() => ({}));
+  if (!String(d.payTo || "").startsWith("0x")) throw new ScdoError("split", `no split payTo for ${agentAddress} at ${url}: ${d.error || d.status || r.status}`);
+  return d;
+}
+
 export function createPaywall({ bot, price = "0.01", network, agent, payTo, facilitator, description = "SCDO x402 paid API call", book = true, log = (m) => console.error(m) } = {}) {
   const a = agent || new ScdoAgent({ network });
   const net = parseNetwork(network || a.network);
   const atomic = checkAmount(usdcToAtomic(price));
-  const to = payTo || a.walletDoc(bot)?.address;
-  if (!to) throw new ScdoError("wallet", `no SCDO x402 wallet for ${bot}; create it first`);
   const fac = (facilitator || FACILITATORS[net]).replace(/\/+$/, "");
+  const agentAddress = a.meta(bot)?.address;
+  const wallet = a.walletDoc(bot)?.address;
+  let to = payTo || (net === "base" ? null : wallet);
+  if (!to && net !== "base") throw new ScdoError("wallet", `no SCDO x402 wallet for ${bot}; create it first`);
+  if (!to && !agentAddress) throw new ScdoError("agent", `no SCDO agent address for ${bot}; register it first`);
+  // On Base mainnet the SCDO relay only settles to the agent's 0xSplits split (GET <relay>/split/<agent>).
+  let splitP = null;
+  const resolvePayTo = async () => {
+    if (to) return to;
+    splitP ||= fetchSplit(a, fac, agentAddress).catch((e) => { splitP = null; throw e; });
+    to = (await splitP).payTo; return to;
+  };
   const n = NETWORKS[net];
-  const requirements = () => ({ scheme: "exact", network: n.id, asset: n.usdc, amount: String(atomic), payTo: to, maxTimeoutSeconds: 120,
-    extra: { name: net === "base-sepolia" ? "USDC" : "USD Coin", version: "2" } });
+  const requirements = async () => ({ scheme: "exact", network: n.id, asset: n.usdc, amount: String(atomic), payTo: await resolvePayTo(), maxTimeoutSeconds: 120,
+    extra: { name: net === "base-sepolia" ? "USDC" : "USD Coin", version: "2", ...(agentAddress ? { scdoAgent: agentAddress } : {}) } });
   const post = async (path, body) => { const r = await a.fetch(fac + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); return [r.status, await r.json().catch(() => ({}))]; };
   async function settle(header) {
     let payload; try { payload = JSON.parse(Buffer.from(String(header), "base64").toString()); } catch { return [null, "bad payment header"]; }
-    const reqs = requirements(); const acc = payload.accepted || {};
-    if (payload.accepted && (String(acc.payTo).toLowerCase() !== to.toLowerCase() || String(acc.amount) !== reqs.amount || acc.network !== reqs.network)) return [null, "payment does not match the requirements"];
+    let reqs; try { reqs = await requirements(); } catch (e) { return [null, e.message]; } const acc = payload.accepted || {};
+    if (payload.accepted && (String(acc.payTo).toLowerCase() !== reqs.payTo.toLowerCase() || String(acc.amount) !== reqs.amount || acc.network !== reqs.network)) return [null, "payment does not match the requirements"];
     const body = { x402Version: 2, paymentPayload: payload, paymentRequirements: reqs };
     const [vs, v] = await post("/verify", body); if (vs !== 200 || !v.isValid) return [null, `verify failed: ${v.invalidReason || v.error || vs}`];
     const [ss, s] = await post("/settle", body); if (ss !== 200 || !s.success) return [null, `settle failed: ${s.errorReason || s.error || ss}`];
@@ -427,7 +446,8 @@ export function createPaywall({ bot, price = "0.01", network, agent, payTo, faci
     const h = req.headers["payment-signature"] || req.headers["x-payment"];
     const [s, err] = h ? await settle(h) : [null, null];
     if (!s) {
-      const body = { x402Version: 2, error: err || "Payment required", resource: { url: `http://${req.headers.host || ""}${req.url}`, description, mimeType: "application/json" }, accepts: [requirements()] };
+      let accepts; try { accepts = [await requirements()]; } catch (e) { res.writeHead(503, { "content-type": "application/json" }); res.end(JSON.stringify({ error: e.message })); return false; }
+      const body = { x402Version: 2, error: err || "Payment required", resource: { url: `http://${req.headers.host || ""}${req.url}`, description, mimeType: "application/json" }, accepts };
       res.writeHead(402, { "content-type": "application/json", "cache-control": "no-store", "PAYMENT-REQUIRED": b64(body) });
       res.end(JSON.stringify(body)); return false;
     }
@@ -435,5 +455,5 @@ export function createPaywall({ bot, price = "0.01", network, agent, payTo, faci
     if (next) next();
     return true;
   }
-  return { middleware, requirements, settle, payTo: to, network: net };
+  return { middleware, requirements, settle, resolvePayTo, get payTo() { return to; }, wallet, agent: agentAddress, network: net };
 }

@@ -44,5 +44,5 @@ import { scdoPaywall } from "@scdo/plugin-eliza";
 app.use(scdoPaywall(runtime, { price: "0.01" }));   // Express, Connect or node:http; SCDO_AGENT_NETWORK=base-sepolia to test
 ```
 
-Paid calls settle in USDC on Base into this agent's own wallet and are booked as income on the SCDO x402 Agent Ledger
+Paid calls settle in USDC on Base to this agent's 0xSplits split (40% agent, 60% SCDO fee, distributed automatically; `extra.scdoAgent` is set for the SCDO relay) and are booked as income on the SCDO x402 Agent Ledger
 (badge: `https://scdo.com.au/agent-ledger/badge/<agent address>.svg`).
