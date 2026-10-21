@@ -28,6 +28,33 @@ NETWORKS = {
     "base-sepolia": {"id": "eip155:84532", "label": "Base Sepolia (test network)", "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e", "rpc": "https://sepolia.base.org"},
 }
 
+# AUDM (Macropod AUD stablecoin) on Base mainnet: 18 decimals, EIP-2612 permit, no EIP-3009, so x402 uses the
+# exact scheme with assetTransferMethod "permit2" (+ eip2612GasSponsoring, the payer still needs no ETH).
+AUDM = {"base": "0xeDEd6ae915B129B67A4ad49901518F2736427063"}
+AUDM_MIN_ATOMIC = 10 ** 15            # 0.001 AUDM
+AUDM_MAX_ATOMIC = 15 * 10 ** 17       # 1.5 AUDM (same cap as the SCDO relay)
+
+
+def aud_to_atomic(value: Any) -> int:
+    s = str(value).strip()
+    if not re.fullmatch(r"\d+(\.\d{1,18})?", s):
+        raise ScdoError("amount", f"not an AUDM amount: {value}")
+    w, _, f = s.partition(".")
+    return int(w) * 10 ** 18 + int((f + "0" * 18)[:18])
+
+
+def atomic_to_aud(atomic: int) -> str:
+    a = int(atomic)
+    return f"{a // 10 ** 18}.{(a % 10 ** 18) // 10 ** 12:06d}"
+
+
+def check_audm_amount(atomic: int) -> int:
+    a = int(atomic)
+    if a < AUDM_MIN_ATOMIC or a > AUDM_MAX_ATOMIC:
+        raise ScdoError("cap", f"amount {atomic_to_aud(a)} AUDM is outside the 0.001 to 1.5 AUDM per-settlement cap")
+    return a
+
+
 # Same caps as the SCDO x402 relay.
 MIN_ATOMIC = 1_000
 MAX_ATOMIC = 1_000_000
@@ -431,16 +458,18 @@ class ScdoAgent:
         reqs = payment_requirements or payload.get("accepted")
         if not reqs:
             raise ScdoError("payload", "payment_requirements is required")
-        amount = reqs.get("amount") or reqs.get("maxAmountRequired") or ((payload.get("payload") or {}).get("authorization") or {}).get("value")
+        is_audm = str(reqs.get("asset", "")).lower() == AUDM["base"].lower()
+        inner = payload.get("payload") or {}
+        amount = reqs.get("amount") or reqs.get("maxAmountRequired") or (inner.get("authorization") or {}).get("value")
         if amount is not None:
-            check_amount(int(amount))
+            (check_audm_amount if is_audm else check_amount)(int(amount))
         tx = settlement if isinstance(settlement, str) else (settlement or {}).get("transaction")
         if not tx or not re.fullmatch(r"0x[0-9a-fA-F]{64}", tx):
             raise ScdoError("settlement", "settlement transaction hash is required")
         s_obj = settlement if isinstance(settlement, dict) else {}
         body = {"agent": addr, "x402Version": payload.get("x402Version") or 2, "paymentPayload": payload, "paymentRequirements": reqs,
                 "settlement": {"success": True, "transaction": tx, "network": s_obj.get("network") or reqs.get("network"),
-                               "payer": s_obj.get("payer") or ((payload.get("payload") or {}).get("authorization") or {}).get("from")}}
+                               "payer": s_obj.get("payer") or (inner.get("authorization") or inner.get("permit2Authorization") or {}).get("from")}}
         st, j = 0, {}
         for i in range(6):
             st, j = self.http(f"{self.ledger_url}/ledger/income", body)
