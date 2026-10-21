@@ -8,7 +8,7 @@
     "subfolder": "packages/mcp-python"
   },
   "websiteUrl": "https://scdo.com.au/agent/",
-  "version": "0.2.1",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "pypi",
