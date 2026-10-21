@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ScdoAgent, usdcToAtomic, atomicToUsdc, checkAmount, parseNetwork, decodePayment, CAPS } from "../src/core.js";
+import { ScdoAgent, defaultDataDir, usdcToAtomic, atomicToUsdc, checkAmount, parseNetwork, decodePayment, CAPS } from "../src/core.js";
 
 const FAKE = join(dirname(fileURLToPath(import.meta.url)), "fake-scdo-agent.mjs");
 function mk(extra = {}) {
@@ -154,4 +154,13 @@ test("paywall on Base mainnet pays the agent's split with extra.scdoAgent", asyn
   assert.equal(r.payTo, SPLIT); assert.notEqual(r.payTo, pw.wallet);
   assert.equal(r.extra.scdoAgent, agent.meta("pm").address);
   assert.equal(seen.filter((u) => u === `https://scdo.com.au/x402-base/split/${agent.meta("pm").address}`).length, 1);
+});
+
+test("defaultDataDir finds one-liner agents in ~/.scdo-agent/data", async () => {
+  const { mkdirSync } = await import("node:fs");
+  const home = mkdtempSync(join(tmpdir(), "scdo-home-"));
+  mkdirSync(join(home, ".scdo-agent", "data"), { recursive: true });
+  assert.equal(defaultDataDir({ HOME: home }), join(home, ".scdo-agent", "data"));
+  mkdirSync(join(home, ".local", "share", "scdo-agent"), { recursive: true });
+  assert.equal(defaultDataDir({ HOME: home }), join(home, ".local", "share", "scdo-agent"));
 });
