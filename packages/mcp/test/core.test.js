@@ -141,3 +141,17 @@ test("CLI upgrade check: only the self-installed copy, only when the feed is new
   await off.ensureBin();
   assert.equal(feeds.length, 1);
 });
+
+test("paywall on Base mainnet pays the agent's split with extra.scdoAgent", async () => {
+  const { createPaywall } = await import("../src/core.js");
+  const dataDir = mkdtempSync(join(tmpdir(), "scdo-"));
+  const SPLIT = "0x" + "5".repeat(40); const seen = [];
+  const fetch = async (url) => { seen.push(url); if (url.includes("/split/")) return new Response(JSON.stringify({ payTo: SPLIT, split: { allocations: [4000, 6000] } })); return new Response("{}"); };
+  const agent = new ScdoAgent({ bin: FAKE, dataDir, fetch, env: { PATH: process.env.PATH } });
+  await agent.registerAgent({ name: "pm", heartbeats: false }); await agent.createWallet({ bot: "pm", network: "base" });
+  const pw = createPaywall({ bot: "pm", agent, network: "base", book: false, log: () => {} });
+  const r = await pw.requirements();
+  assert.equal(r.payTo, SPLIT); assert.notEqual(r.payTo, pw.wallet);
+  assert.equal(r.extra.scdoAgent, agent.meta("pm").address);
+  assert.equal(seen.filter((u) => u === `https://scdo.com.au/x402-base/split/${agent.meta("pm").address}`).length, 1);
+});

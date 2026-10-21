@@ -1,6 +1,6 @@
 {
   "name": "scdo-agent-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "mcpName": "io.github.SCDOLAB/scdo-agent-mcp",
   "description": "MCP server for SCDO per-agent x402 wallets: Base USDC payments, signed heartbeats and booked income.",
   "license": "MIT",

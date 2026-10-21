@@ -1,4 +1,5 @@
-"""SCDO x402 paywall: charge per call for any HTTP endpoint. USDC on Base, paid to the agent's own SCDO x402 wallet.
+"""SCDO x402 paywall: charge per call for any HTTP endpoint. USDC on Base, paid to the agent's SCDO 0xSplits split
+(40% to the agent's wallet, 60% SCDO fee; the split is distributed automatically after each settle).
 
     scdo-agent-serve --bot my-bot --price 0.01 --upstream http://localhost:8000          # Base mainnet
     scdo-agent-serve --bot my-bot --price 0.01 --upstream http://localhost:8000 --network base-sepolia
@@ -42,6 +43,28 @@ def _post(url: str, body: dict, timeout: float = 60) -> tuple[int, dict]:
             return e.code, {}
 
 
+def fetch_split(facilitator: str, agent_address: str, timeout: float = 30) -> dict:
+    """GET <relay>/split/<agent>: the agent's 0xSplits split, the only payTo the SCDO relay settles to."""
+    url = f"{facilitator.rstrip('/')}/split/{agent_address}"
+    req = urllib.request.Request(url, headers={"user-agent": "scdo-agent-serve", "accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            d = json.loads(r.read() or b"{}")
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        raise ScdoError("split", f"could not get the agent's split from {url}: {e}") from None
+    if not str(d.get("payTo", "")).startswith("0x"):
+        raise ScdoError("split", f"no split payTo for {agent_address} at {url}: {d.get('error') or d.get('status') or d}")
+    return d
+
+
+def split_terms(split: dict) -> str:
+    try:
+        al = split["split"]["allocations"]; tot = split["split"].get("totalAllocation") or sum(al)
+        return f"{al[0] * 100 // tot}% agent, {al[1] * 100 // tot}% SCDO fee"
+    except Exception:  # noqa: BLE001
+        return "40% agent, 60% SCDO fee"
+
+
 class Paywall:
     def __init__(self, bot: str, price: str = "0.01", network: Optional[str] = None, agent: Optional[ScdoAgent] = None,
                  pay_to: Optional[str] = None, facilitator: Optional[str] = None, description: str = "SCDO x402 paid API call",
@@ -55,18 +78,34 @@ class Paywall:
         self.agent = agent
         self.bot, self.network = bot, parse_network(network or self.agent.network)
         self.atomic = check_amount(usdc_to_atomic(price))
+        self.facilitator = (facilitator or FACILITATORS[self.network]).rstrip("/")
+        meta = self.agent.meta(bot) or {}
+        self.agent_address = meta.get("address")
         doc = self.agent.wallet_doc(bot) if not pay_to else None
-        self.pay_to = pay_to or (doc or {}).get("address")
+        self.wallet = (doc or {}).get("address")
+        self.split = None
+        if not pay_to and self.network == "base":
+            # The SCDO relay only settles to the agent's 0xSplits split (40% agent wallet / 60% SCDO fee).
+            if not self.agent_address:
+                raise ScdoError("agent", f"no SCDO agent address for {bot}; run the one-liner or register_agent first")
+            self.split = fetch_split(self.facilitator, self.agent_address)
+            pay_to = self.split["payTo"]
+        self.pay_to = pay_to or self.wallet
         if not self.pay_to:
             raise ScdoError("wallet", f"no SCDO x402 wallet for {bot}; run the one-liner or create_wallet first")
-        self.facilitator = (facilitator or FACILITATORS[self.network]).rstrip("/")
         self.description, self.book, self.post, self.log = description, book, post, log
         self.earned, self.calls, self._lock = 0, 0, threading.Lock()
 
     def requirements(self) -> dict:
         n = NETWORKS[self.network]
         return {"scheme": "exact", "network": n["id"], "asset": n["usdc"], "amount": str(self.atomic), "payTo": self.pay_to,
-                "maxTimeoutSeconds": 120, "extra": {"name": "USDC" if self.network == "base-sepolia" else "USD Coin", "version": "2"}}
+                "maxTimeoutSeconds": 120, "extra": self._extra()}
+
+    def _extra(self) -> dict:
+        e = {"name": "USDC" if self.network == "base-sepolia" else "USD Coin", "version": "2"}
+        if self.agent_address:
+            e["scdoAgent"] = self.agent_address
+        return e
 
     def challenge(self, url: str, error: str = "Payment required") -> tuple[int, dict, bytes]:
         body = {"x402Version": 2, "error": error, "resource": {"url": url, "description": self.description, "mimeType": "application/json"}, "accepts": [self.requirements()]}
@@ -156,8 +195,8 @@ def serve(pw: Paywall, upstream: str, host: str = "0.0.0.0", port: int = 8402, f
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="scdo-agent-serve", description="Charge per call for any HTTP endpoint with SCDO x402 (USDC on Base, paid to your agent's own wallet).")
-    ap.add_argument("--bot", required=True, help="local SCDO agent name (its x402 wallet is payTo)")
+    ap = argparse.ArgumentParser(prog="scdo-agent-serve", description="Charge per call for any HTTP endpoint with SCDO x402 (USDC on Base, paid to your agent's split: 40% agent, 60% SCDO fee).")
+    ap.add_argument("--bot", required=True, help="local SCDO agent name (on Base mainnet payTo is its 0xSplits split: 40%% agent, 60%% SCDO fee)")
     ap.add_argument("--price", default="0.01", help="USDC per call, 0.001 to 1 (default 0.01)")
     ap.add_argument("--upstream", required=True, help="your API, e.g. http://localhost:8000")
     ap.add_argument("--network", default=None, help="base (default) or base-sepolia")
@@ -168,7 +207,8 @@ def main(argv=None):
     ag = pw.agent
     meta = ag.meta(a.bot) or {}
     srv = serve(pw, a.upstream, a.host, a.port)
-    print(f"SCDO x402 paywall on :{a.port} -> {a.upstream}\n  price {atomic_to_usdc(pw.atomic)} USDC per call on {NETWORKS[pw.network]['label']}, paid to {pw.pay_to}\n"
+    print(f"SCDO x402 paywall on :{a.port} -> {a.upstream}\n  price {atomic_to_usdc(pw.atomic)} USDC per call on {NETWORKS[pw.network]['label']}, paid to {pw.pay_to}"
+          + (f"\n  = your agent's split: {split_terms(pw.split)} (agent wallet {pw.wallet})" if pw.split else "") + "\n"
           f"  earnings: https://scdo.com.au/agent-ledger/?agent={meta.get('address', '')}", flush=True)
     try:
         srv.serve_forever()
