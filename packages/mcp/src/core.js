@@ -67,6 +67,8 @@ function today() { return new Date().toISOString().slice(0, 10); }
 export function defaultDataDir(env = process.env) {
   if (env.SCDO_AGENT_DATA && env.SCDO_AGENT_DATA.trim()) return env.SCDO_AGENT_DATA.trim();
   const user = join(env.HOME || homedir(), ".local", "share", "scdo-agent");
+  const oneliner = join(env.HOME || homedir(), ".scdo-agent", "data"); // where https://scdo.com.au/agent/install.sh keeps agents
+  if (!existsSync(user) && existsSync(oneliner)) return oneliner;
   if (existsSync(user) || !existsSync("/var/lib/scdo-agent")) return user;
   return "/var/lib/scdo-agent";
 }

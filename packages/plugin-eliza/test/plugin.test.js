@@ -49,3 +49,13 @@ test("vendored core matches scdo-agent-mcp core", () => {
   const b = readFileSync(join(dirname(require.resolve("scdo-agent-mcp/package.json")), "src", "core.js"), "utf8");
   assert.equal(a, b);
 });
+
+test("Eliza core defaultDataDir finds one-liner agents in ~/.scdo-agent/data", async () => {
+  const { defaultDataDir } = await import("../src/scdo-core.js");
+  const { mkdirSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const home = mkdtempSync(join(tmpdir(), "scdo-home-"));
+  mkdirSync(join(home, ".scdo-agent", "data"), { recursive: true });
+  assert.equal(defaultDataDir({ HOME: home }), join(home, ".scdo-agent", "data"));
+});
