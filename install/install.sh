@@ -34,6 +34,9 @@ if [ ! -x "$R/venv/bin/scdo-agent-mcp" ]; then
       && "$R/venv/bin/python" "$T/get-pip.py" -q --disable-pip-version-check >/dev/null || { echo "python3 venv unavailable (apt install python3-venv)" >&2; exit 1; }
   fi
   "$R/venv/bin/pip" install -q --disable-pip-version-check scdo-agent-tools scdo-agent-mcp
+else
+  echo "Upgrading scdo-agent-tools and scdo-agent-mcp (PyPI)"
+  "$R/venv/bin/pip" install -q -U --disable-pip-version-check scdo-agent-tools scdo-agent-mcp || echo "pip upgrade failed; keeping the installed versions" >&2
 fi
 if [ -z "$BULK" ] && { [ -n "$XH" ] || [ -n "$OPERATOR" ]; }; then  # agent-signed bind of operator/x handle via bulk.py
   printf "name,operator,platform,x_handle\n%s,%s,%s,%s\n" "$NAME" "$OPERATOR" "$PLATFORM" "$XH" > "$R/$NAME.csv"; ONE="$R/$NAME.csv"
@@ -72,7 +75,12 @@ if [ "$OK" = 1 ] && [ ! -f "$D/$NAME/wallet.json" ]; then A wallet create --bot 
 W=$(J "$D/$NAME/wallet.json" address)
 echo "SCDO agent:      $NAME"
 echo "Agent address:   $ADDR"
-echo "x402 USDC (Base mainnet, chain 8453): ${W:-not created yet (agent not registered; re-run when online)}"
+echo "Agent wallet (Base, chain 8453): ${W:-not created yet (agent not registered; re-run when online)}"
+SP=""; if [ -n "$W" ]; then j=0; while [ $j -lt 6 ]; do SP=$(curl -fs "https://scdo.com.au/x402-base/split/$ADDR" | sed -n 's/.*"payTo": *"\(0x[0-9a-fA-F]*\)".*/\1/p'); [ -n "$SP" ] && break; j=$((j+1)); sleep 10; done; fi
+echo "x402 payTo:      ${SP:-pending: check https://scdo.com.au/x402-base/split/$ADDR in a minute}"
+echo "                 = your immutable 0xSplits split: default 60% SCDO / 40% your wallet, rate fixed per customer"
+[ -n "$SP" ] && echo "                 https://basescan.org/address/$SP"
+echo "Terms and fees:  https://scdo.com.au/terms/x402/"
 echo "Ledger profile:  https://scdo.com.au/agent-ledger/?agent=$ADDR"
 echo "Registered:      $([ $OK = 1 ] && echo yes || echo pending)"
 echo "MCP server:      $R/venv/bin/scdo-agent-mcp   CLI: $B --data-dir $D"
