@@ -1,7 +1,12 @@
 // Public Streamable HTTP MCP. Stateless JSON responses: one fresh server per POST,
 // no session stickiness, so it can sit behind the scdo.com.au nginx proxy.
 // Wallet tools stay off unless includeWallet is set. Keys are never created on the public path.
+import { webcrypto } from "node:crypto";
 import { createServer as createHttpServer } from "node:http";
+
+// Node 18 exposes Web Crypto on globalThis only in some entry points. The
+// Streamable HTTP SDK calls crypto.randomUUID() and throws ReferenceError there.
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "./server.js";
 import { VERSION } from "./version.js";
