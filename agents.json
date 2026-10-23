@@ -1,0 +1,42 @@
+{
+  "name": "SCDO Laboratory",
+  "description": "SCDO x402 multi-chain tax rails and Agent Ledger for pay-per-call agent commerce.",
+  "website": "https://scdo.com.au",
+  "llms_txt": "https://scdo.com.au/llms.txt",
+  "github": "https://github.com/SCDOLAB",
+  "contact": "admin@scdo.com.au",
+  "x402_rails": "https://raw.githubusercontent.com/SCDOLAB/scdo-agent-ledger/main/catalog/x402-rails.json",
+  "whyAgentsPayScdo": {
+    "oneIntegrationFiveRails": "Base USDC, Solana USDC, TRON USDT, BNB USDT, TON USDT",
+    "nonCustodial": "payTo = immutable on-chain split; agent share + SCDO tax settle automatically; SCDO never holds agent funds",
+    "economics": "standard 60% SCDO / 40% agent; founder 10% fee for first 10 independent customers; https://scdo.com.au/treasury/",
+    "complianceSignal": "9Y9 PTY LTD AUSTRAC DCE DCE100714503-001 (company fact, not legal advice)",
+    "discovery": "structured endpoints and payTo addresses for bot-to-bot paid calls"
+  },
+  "services": [
+    {
+      "name": "scdo-agent-ledger",
+      "url": "https://scdo.com.au/agents/",
+      "api": "https://scdo.com.au/agent-ledger/api/agents",
+      "repo": "https://github.com/SCDOLAB/scdo-agent-ledger"
+    },
+    {
+      "name": "x402-base-health",
+      "url": "https://scdo.com.au/x402-base/health"
+    },
+    {
+      "name": "x402-bnb",
+      "url": "https://scdo.com.au/x402-bnb/",
+      "health": "https://scdo.com.au/x402-bnb/health"
+    },
+    {
+      "name": "x402-tron",
+      "url": "https://scdo.com.au/x402-tron/",
+      "health": "https://scdo.com.au/x402-tron/health"
+    },
+    {
+      "name": "treasury",
+      "url": "https://scdo.com.au/treasury/"
+    }
+  ]
+}
