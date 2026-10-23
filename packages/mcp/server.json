@@ -1,21 +1,21 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.SCDOLAB/scdo-agent-mcp",
-  "description": "SCDO per-agent x402 wallet: Base USDC payments, signed heartbeats and booked income.",
+  "description": "SCDO chain, Agent Ledger and x402 tools. stdio via npm, or Streamable HTTP at https://scdo.com.au/mcp once the site proxy is in place.",
   "repository": {
     "url": "https://github.com/SCDOLAB/scdo-agent-plugins",
     "source": "github",
-    "subfolder": "packages/mcp-python"
+    "subfolder": "packages/mcp"
   },
   "websiteUrl": "https://scdo.com.au/linux-agent/",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "packages": [
     {
-      "registryType": "pypi",
-      "registryBaseUrl": "https://pypi.org",
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "scdo-agent-mcp",
-      "version": "0.1.1",
-      "runtimeHint": "uvx",
+      "version": "0.2.0",
+      "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
       },
@@ -31,6 +31,12 @@
           "isRequired": false
         }
       ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://scdo.com.au/mcp"
     }
   ]
 }

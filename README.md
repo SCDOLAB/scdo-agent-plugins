@@ -6,7 +6,7 @@ Thin plugins that give any agent framework an SCDO per-agent x402 wallet (USDC o
 
 | Package | Path |
 |---|---|
-| `scdo-agent-mcp` (npm, MCP stdio server) | `packages/mcp` |
+| `scdo-agent-mcp` (npm, MCP stdio and Streamable HTTP) | `packages/mcp` |
 | `@scdo/plugin-eliza` (npm, ElizaOS) | `packages/plugin-eliza` |
 | `scdo-agent-mcp` (PyPI, Python MCP stdio server, `uvx scdo-agent-mcp`) | `packages/mcp-python` |
 | `scdo-agent-tools` (PyPI, Python and LangChain) | `python/scdo-agent-tools` |
@@ -39,7 +39,20 @@ npm install https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1
 pip install "scdo-agent-tools[langchain] @ https://github.com/SCDOLAB/scdo-agent-plugins/releases/download/v0.1.0/scdo_agent_tools-0.1.0-py3-none-any.whl"  # Python / LangChain
 ```
 
-MCP registry entry: `io.github.SCDOLAB/scdo-agent-mcp` (`packages/mcp-python/server.json`, PyPI package `scdo-agent-mcp`).
+MCP registry entry: `io.github.SCDOLAB/scdo-agent-mcp` (`packages/mcp-python/server.json`). PyPI package `scdo-agent-mcp` is stdio. The npm package of the same name (`packages/mcp`, 0.2.0) is stdio by default and Streamable HTTP with `--http`.
+
+## Streamable HTTP (FiatDock)
+
+FiatDock's free list looks up an npm package name. `scdo-agent-mcp` is not on npm yet (PyPI 0.2.0 does not count). FiatDock's paid list needs a Streamable HTTP URL. `GET https://scdo.com.au/api/x402/ledger-stats` is a live HTTP 402 (~0.01 USDC, `payTo` `0x105c14379874E0Ff5287a2f5214146ed1b9FC866`) and is not that URL.
+
+After `npm publish` and a loopback process behind the existing scdo.com.au vhost:
+
+- Free listing package name: `scdo-agent-mcp`
+- Paid listing endpoint: `https://scdo.com.au/mcp`
+- Health: `https://scdo.com.au/mcp/health`
+- Tool to name on the paid listing: `ledger_stats`
+
+No new apex domain. Deploy, the handshake and the Bazaar note are in [`packages/mcp/README.md`](packages/mcp/README.md).
 
 Guide: https://scdo.com.au/linux-agent/
 

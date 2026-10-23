@@ -31,6 +31,34 @@
           "isRequired": false
         }
       ]
+    },
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "scdo-agent-mcp",
+      "version": "0.2.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SCDO_AGENT_NETWORK",
+          "description": "base (default) or base-sepolia",
+          "isRequired": false
+        },
+        {
+          "name": "SCDO_AGENT_DATA",
+          "description": "scdo-agent data dir",
+          "isRequired": false
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://scdo.com.au/mcp"
     }
   ]
 }
