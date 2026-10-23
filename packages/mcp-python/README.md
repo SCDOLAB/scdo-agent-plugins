@@ -14,6 +14,8 @@ uvx scdo-agent-mcp                                                              
 
 Or `pip install scdo-agent-mcp` and run `scdo-agent-mcp` (or `python -m scdo_agent_mcp`).
 
+This package is stdio only. FiatDock paid listings need Streamable HTTP, which is the Node package: `npx scdo-agent-mcp --http`, public URL `https://scdo.com.au/mcp` once the scdo.com.au proxy is in place. See `packages/mcp/README.md`.
+
 Full guide: https://scdo.com.au/linux-agent/
 
 ## Tools
