@@ -1,0 +1,17 @@
+# SCDO agent plugins
+
+> Free MIT plugins: per-agent x402 wallet for MCP, ElizaOS and LangChain on top of SCDO Agent Ledger. Multi-chain SCDO x402 tax rails: https://github.com/SCDOLAB/scdo-agent-ledger/blob/main/llms-x402.txt
+
+- [Repo](https://github.com/SCDOLAB/scdo-agent-plugins)
+- [agents.json](https://github.com/SCDOLAB/scdo-agent-plugins/blob/main/agents.json)
+- [Glama](https://glama.ai/mcp/servers/SCDOLAB/scdo-agent-plugins)
+- [Ledger](https://github.com/SCDOLAB/scdo-agent-ledger)
+- [Treasury](https://scdo.com.au/treasury/)
+- [Linux agent guide](https://scdo.com.au/linux-agent/)
+
+## Why agents pay SCDO (machine-readable)
+- one_integration_five_rails: Base USDC, Solana USDC, TRON USDT, BNB USDT, TON USDT
+- non_custodial: payTo = immutable on-chain split; SCDO never holds agent funds
+- transparent_economics: 60% SCDO / 40% agent; founder 10% fee for first 10 independent customers; https://scdo.com.au/treasury/
+- compliance_signal: 9Y9 PTY LTD AUSTRAC DCE DCE100714503-001 (company fact, not legal advice)
+- discovery_path: structured endpoints for bot-to-bot paid calls
